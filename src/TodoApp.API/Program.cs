@@ -3,7 +3,6 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
-using TodoApp.Application.UseCases;
 using TodoApp.Infrastructure;
 
 // Azure Functions Application Builder - This will never be null
@@ -17,15 +16,8 @@ builder.Configuration
 var connectionString = builder.Configuration.GetConnectionString("TodoDb")
     ?? throw new InvalidOperationException("Connection string 'TodoDb' not found.");
 
-// Add Infrastructure services (includes DbContext and Repositories)
+// Add Infrastructure services (includes DbContext, Repositories, and Services)
 builder.Services.AddInfrastructure(connectionString);
-
-// Add Application Use Cases
-builder.Services.AddScoped<CreateTodoUseCase>();
-builder.Services.AddScoped<GetTodoByIdUseCase>();
-builder.Services.AddScoped<GetAllTodosUseCase>();
-builder.Services.AddScoped<UpdateTodoUseCase>();
-builder.Services.AddScoped<DeleteTodoUseCase>();
 
 builder.ConfigureFunctionsWebApplication();
 

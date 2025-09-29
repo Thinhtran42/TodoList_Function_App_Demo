@@ -1,9 +1,7 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36414.22 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
-
-# Clean Architecture Projects
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoApp.API", "src\TodoApp.API\TodoApp.API.csproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoApp.Application", "src\TodoApp.Application\TodoApp.Application.csproj", "{B2C3D4E5-F6A7-8901-BCDE-F23456789ABC}"
@@ -12,11 +10,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoApp.Domain", "src\TodoA
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoApp.Infrastructure", "src\TodoApp.Infrastructure\TodoApp.Infrastructure.csproj", "{D4E5F6A7-B8C9-0123-DEF1-23456789ABCD}"
 EndProject
-
-# Solution Folders
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E5F6A7B8-C9D0-1234-EF12-3456789ABCDE}"
 EndProject
-
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{709F4080-D4D5-403E-AFF8-BDA2DF41E8BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodoApp.Tests", "tests\TodoApp.Tests\TodoApp.Tests.csproj", "{05DE1B3D-9B80-4116-B95E-C97545C57551}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,11 +38,16 @@ Global
 		{D4E5F6A7-B8C9-0123-DEF1-23456789ABCD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4E5F6A7-B8C9-0123-DEF1-23456789ABCD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D4E5F6A7-B8C9-0123-DEF1-23456789ABCD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{05DE1B3D-9B80-4116-B95E-C97545C57551}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05DE1B3D-9B80-4116-B95E-C97545C57551}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05DE1B3D-9B80-4116-B95E-C97545C57551}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05DE1B3D-9B80-4116-B95E-C97545C57551}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A1B2C3D4-E5F6-7890-ABCD-EF1234567890} = {E5F6A7B8-C9D0-1234-EF12-3456789ABCDE}
 		{B2C3D4E5-F6A7-8901-BCDE-F23456789ABC} = {E5F6A7B8-C9D0-1234-EF12-3456789ABCDE}
 		{C3D4E5F6-A7B8-9012-CDEF-123456789DEF} = {E5F6A7B8-C9D0-1234-EF12-3456789ABCDE}
 		{D4E5F6A7-B8C9-0123-DEF1-23456789ABCD} = {E5F6A7B8-C9D0-1234-EF12-3456789ABCDE}
+		{05DE1B3D-9B80-4116-B95E-C97545C57551} = {709F4080-D4D5-403E-AFF8-BDA2DF41E8BF}
 	EndGlobalSection
 EndGlobal

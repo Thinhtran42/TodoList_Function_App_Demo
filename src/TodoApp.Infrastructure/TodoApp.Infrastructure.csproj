@@ -24,6 +24,7 @@
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
 		<PackageReference Include="Npgsql" Version="8.0.5" />
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
+		<PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.8" />
 	</ItemGroup>
 
 </Project>
