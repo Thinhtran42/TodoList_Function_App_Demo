@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Extensions;
 using TodoApp.Application.Interfaces;
 using TodoApp.Application.Mappers;
 using TodoApp.Domain.Entities;
@@ -20,260 +19,124 @@ public class TodoService : ITodoService
         _logger = logger;
     }
 
-    public async Task<TodoDto> CreateTodoAsync(CreateTodoRequest request)
+    public async Task<TodoDto> CreateTodoAsync(long userId, CreateTodoRequest request)
     {
-        _logger.LogInformation("Creating new todo with title: {Title}", request.Title);
-
-        try
+        var todoItem = new TodoItem
         {
-            var todoItem = TodoItem.Create(request.Title, request.Description, request.Priority, request.Category);
-            
-            if (request.DueDate.HasValue)
-            {
-                todoItem.SetDueDate(request.DueDate);
-            }
-            
-            if (!string.IsNullOrEmpty(request.Tags))
-            {
-                todoItem.SetTags(request.Tags);
-            }
+            Title = request.Title,
+            Description = request.Description,
+            Priority = request.Priority,
+            Category = request.Category,
+            DueDate = request.DueDate,
+            Tags = request.Tags,
+            UserId = userId
+        };
 
-            var createdTodo = await _todoRepository.CreateAsync(todoItem);
-
-            _logger.LogInformation("Todo created successfully with ID: {TodoId}", createdTodo.Id);
-            return TodoMapper.ToDto(createdTodo);
-        }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning("Invalid todo creation request: {Message}", ex.Message);
-            throw new TodoValidationException(ex.Message, ex);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error creating todo with title: {Title}", request.Title);
-            throw;
-        }
+        var createdTodo = await _todoRepository.CreateAsync(todoItem);
+        return TodoMapper.ToDto(createdTodo);
     }
 
-    public async Task<TodoDto> GetTodoByIdAsync(long id)
+    public async Task<TodoDto> GetTodoByIdAsync(long userId, long id)
     {
-        _logger.LogInformation("Getting todo by ID: {TodoId}", id);
-
-        var todoItem = await _todoRepository.GetByIdAsync(id);
-        if (todoItem == null)
-        {
-            _logger.LogWarning("Todo not found with ID: {TodoId}", id);
+        var todo = await _todoRepository.GetByIdAsync(userId, id);
+        if (todo == null)
             throw new TodoNotFoundException(id);
-        }
-
-        _logger.LogDebug("Found todo with ID: {TodoId}", id);
-        return TodoMapper.ToDto(todoItem);
+        return TodoMapper.ToDto(todo);
     }
 
-    public async Task<IEnumerable<TodoDto>> GetAllTodosAsync()
+    public async Task<IEnumerable<TodoDto>> GetAllTodosAsync(long userId)
     {
-        _logger.LogInformation("Getting all todos");
-
-        var todoItems = await _todoRepository.GetAllAsync();
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} todos", result.Count());
-        return result;
+        var todos = await _todoRepository.GetAllAsync(userId);
+        return todos.Select(TodoMapper.ToDto);
     }
 
-    public async Task<IEnumerable<TodoDto>> GetCompletedTodosAsync()
+    public async Task<IEnumerable<TodoDto>> GetCompletedTodosAsync(long userId)
     {
-        _logger.LogInformation("Getting completed todos");
-
-        var todoItems = await _todoRepository.GetCompletedTodosAsync();
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} completed todos", result.Count());
-        return result;
+        var todos = await _todoRepository.GetCompletedTodosAsync(userId);
+        return todos.Select(TodoMapper.ToDto);
     }
 
-    public async Task<IEnumerable<TodoDto>> GetIncompleteTodosAsync()
+    public async Task<IEnumerable<TodoDto>> GetIncompleteTodosAsync(long userId)
     {
-        _logger.LogInformation("Getting incomplete todos");
-
-        var todoItems = await _todoRepository.GetIncompleteTodosAsync();
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} incomplete todos", result.Count());
-        return result;
+        var todos = await _todoRepository.GetIncompleteTodosAsync(userId);
+        return todos.Select(TodoMapper.ToDto);
     }
 
-    public async Task<TodoDto> UpdateTodoAsync(long id, UpdateTodoRequest request)
+    public async Task<TodoDto> UpdateTodoAsync(long userId, long id, UpdateTodoRequest request)
     {
-        _logger.LogInformation("Updating todo with ID: {TodoId}", id);
-
-        var todoItem = await _todoRepository.GetByIdAsync(id);
-        if (todoItem == null)
-        {
-            _logger.LogWarning("Todo not found with ID: {TodoId}", id);
+        var existingTodo = await _todoRepository.GetByIdAsync(userId, id);
+        if (existingTodo == null)
             throw new TodoNotFoundException(id);
-        }
 
-        try
-        {
-            // Apply updates based on what's provided
-            if (!string.IsNullOrWhiteSpace(request.Title))
-            {
-                todoItem.UpdateTitle(request.Title);
-                _logger.LogDebug("Updated title for todo {TodoId}", id);
-            }
+        if (!string.IsNullOrEmpty(request.Title))
+            existingTodo.Title = request.Title;
 
-            if (!string.IsNullOrEmpty(request.Description))
-            {
-                todoItem.UpdateDescription(request.Description);
-                _logger.LogDebug("Updated description for todo {TodoId}", id);
-            }
+        if (request.Description != null)
+            existingTodo.Description = request.Description;
 
-            if (request.IsCompleted.HasValue)
-            {
-                if (request.IsCompleted.Value)
-                {
-                    todoItem.MarkAsCompleted();
-                    _logger.LogDebug("Marked todo {TodoId} as completed", id);
-                }
-                else
-                {
-                    todoItem.MarkAsIncomplete();
-                    _logger.LogDebug("Marked todo {TodoId} as incomplete", id);
-                }
-            }
+        if (request.IsCompleted.HasValue)
+            existingTodo.IsCompleted = request.IsCompleted.Value;
 
-            if (request.Priority.HasValue)
-            {
-                todoItem.SetPriority(request.Priority.Value);
-                _logger.LogDebug("Updated priority for todo {TodoId}", id);
-            }
+        if (request.Priority.HasValue)
+            existingTodo.Priority = request.Priority.Value;
 
-            if (request.Category.HasValue)
-            {
-                todoItem.SetCategory(request.Category.Value);
-                _logger.LogDebug("Updated category for todo {TodoId}", id);
-            }
+        if (request.Category.HasValue)
+            existingTodo.Category = request.Category.Value;
 
-            if (request.DueDate.HasValue)
-            {
-                todoItem.SetDueDate(request.DueDate);
-                _logger.LogDebug("Updated due date for todo {TodoId}", id);
-            }
+        if (request.DueDate.HasValue)
+            existingTodo.DueDate = request.DueDate;
 
-            if (request.Tags != null)
-            {
-                todoItem.SetTags(request.Tags);
-                _logger.LogDebug("Updated tags for todo {TodoId}", id);
-            }
+        if (request.Tags != null)
+            existingTodo.Tags = request.Tags;
 
-            var updatedTodo = await _todoRepository.UpdateAsync(todoItem);
-            if (updatedTodo == null)
-            {
-                throw new TodoNotFoundException(id);
-            }
+        existingTodo.UpdateTimestamp();
 
-            _logger.LogInformation("Todo updated successfully with ID: {TodoId}", id);
-            return TodoMapper.ToDto(updatedTodo);
-        }
-        catch (ArgumentException ex)
-        {
-            _logger.LogWarning("Invalid todo update request for ID {TodoId}: {Message}", id, ex.Message);
-            throw new TodoValidationException(ex.Message, ex);
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning("Invalid operation for todo {TodoId}: {Message}", id, ex.Message);
-            throw new TodoValidationException(ex.Message, ex);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error updating todo with ID: {TodoId}", id);
-            throw;
-        }
+        var updatedTodo = await _todoRepository.UpdateAsync(existingTodo);
+        return TodoMapper.ToDto(updatedTodo!);
     }
 
-    public async Task<bool> DeleteTodoAsync(long id)
+    public async Task<bool> DeleteTodoAsync(long userId, long id)
     {
-        _logger.LogInformation("Deleting todo with ID: {TodoId}", id);
+        var todo = await _todoRepository.GetByIdAsync(userId, id);
+        if (todo == null)
+            return false;
 
-        try
+        await _todoRepository.DeleteAsync(id);
+        return true;
+    }
+
+    public async Task<bool> TodoExistsAsync(long userId, long id)
+    {
+        return await _todoRepository.ExistsAsync(userId, id);
+    }
+
+    public async Task<PagedResult<TodoDto>> GetTodosAsync(long userId, TodoQueryParameters parameters)
+    {
+        var pagedResult = await _todoRepository.GetTodosAsync(userId, parameters);
+        
+        return new PagedResult<TodoDto>
         {
-            var result = await _todoRepository.DeleteAsync(id);
-            
-            if (result)
-            {
-                _logger.LogInformation("Todo deleted successfully with ID: {TodoId}", id);
-            }
-            else
-            {
-                _logger.LogWarning("Todo not found for deletion with ID: {TodoId}", id);
-            }
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting todo with ID: {TodoId}", id);
-            throw;
-        }
+            Items = pagedResult.Items.Select(TodoMapper.ToDto),
+            TotalItems = pagedResult.TotalItems,
+            PageSize = pagedResult.PageSize
+        };
     }
 
-    public async Task<bool> TodoExistsAsync(long id)
+    public async Task<IEnumerable<TodoDto>> SearchTodosAsync(long userId, string searchTerm)
     {
-        _logger.LogDebug("Checking if todo exists with ID: {TodoId}", id);
-        return await _todoRepository.ExistsAsync(id);
+        var todos = await _todoRepository.SearchTodosAsync(userId, searchTerm);
+        return todos.Select(TodoMapper.ToDto);
     }
 
-    public async Task<PagedResult<TodoDto>> GetTodosAsync(TodoQueryParameters parameters)
+    public async Task<IEnumerable<TodoDto>> GetTodosByTagsAsync(long userId, string tags)
     {
-        _logger.LogInformation("Getting todos with parameters: Page={Page}, PageSize={PageSize}", parameters.Page, parameters.PageSize);
-
-        try
-        {
-            var result = await _todoRepository.GetTodosAsync(parameters);
-
-            _logger.LogDebug("Found {Count} todos out of {Total} total", result.Items.Count(), result.TotalItems);
-
-            return result.Map((Func<IEnumerable<TodoItem>, IEnumerable<TodoDto>>)TodoMapper.ToDto);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error getting todos");
-            throw;
-        }
+        var todos = await _todoRepository.GetTodosByTagsAsync(userId, tags);
+        return todos.Select(TodoMapper.ToDto);
     }
 
-    public async Task<IEnumerable<TodoDto>> SearchTodosAsync(string searchTerm)
+    public async Task<IEnumerable<TodoDto>> GetOverdueTodosAsync(long userId)
     {
-        _logger.LogInformation("Searching todos with term: {SearchTerm}", searchTerm);
-
-        var todoItems = await _todoRepository.SearchTodosAsync(searchTerm);
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} todos matching search term", result.Count());
-        return result;
-    }
-
-    public async Task<IEnumerable<TodoDto>> GetTodosByTagsAsync(string tags)
-    {
-        _logger.LogInformation("Getting todos by tags: {Tags}", tags);
-
-        var todoItems = await _todoRepository.GetTodosByTagsAsync(tags);
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} todos with tags", result.Count());
-        return result;
-    }
-
-    public async Task<IEnumerable<TodoDto>> GetOverdueTodosAsync()
-    {
-        _logger.LogInformation("Getting overdue todos");
-
-        var todoItems = await _todoRepository.GetOverdueTodosAsync();
-        var result = TodoMapper.ToDto(todoItems);
-
-        _logger.LogDebug("Found {Count} overdue todos", result.Count());
-        return result;
+        var todos = await _todoRepository.GetOverdueTodosAsync(userId);
+        return todos.Select(TodoMapper.ToDto);
     }
 }

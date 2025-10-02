@@ -2,9 +2,13 @@ using FluentValidation;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.Extensions.Logging;
+using Microsoft.OpenApi.Models;
 using System.Net;
 using System.Web;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using TodoApp.API.Helpers;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
@@ -18,6 +22,7 @@ public class TodoFunctions
 {
     private readonly ILogger<TodoFunctions> _logger;
     private readonly ITodoService _todoService;
+    private readonly IJwtService _jwtService;
     private readonly IValidator<CreateTodoRequest> _createTodoValidator;
     private readonly IValidator<UpdateTodoRequest> _updateTodoValidator;
     private readonly IValidator<TodoQueryParameters> _queryParametersValidator;
@@ -25,28 +30,67 @@ public class TodoFunctions
     public TodoFunctions(
         ILogger<TodoFunctions> logger,
         ITodoService todoService,
+        IJwtService jwtService,
         IValidator<CreateTodoRequest> createTodoValidator,
         IValidator<UpdateTodoRequest> updateTodoValidator,
         IValidator<TodoQueryParameters> queryParametersValidator)
     {
         _logger = logger;
         _todoService = todoService;
+        _jwtService = jwtService;
         _createTodoValidator = createTodoValidator;
         _updateTodoValidator = updateTodoValidator;
         _queryParametersValidator = queryParametersValidator;
     }
 
+    private long GetUserIdFromToken(HttpRequestData req)
+    {
+        // Check if Authorization header exists
+        if (!req.Headers.Contains("Authorization"))
+        {
+            throw new UnauthorizedAccessException("No authorization header provided");
+        }
+
+        var authHeader = req.Headers.GetValues("Authorization").FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+        {
+            throw new UnauthorizedAccessException("No valid authorization token provided");
+        }
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+
+        // Validate token signature and get claims principal
+        var principal = _jwtService.ValidateToken(token);
+        if (principal == null)
+        {
+            throw new UnauthorizedAccessException("Invalid token");
+        }
+
+        var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("Invalid user ID in token");
+        }
+
+        return userId;
+    }
+
     [Function("CreateTodo")]
-    [OpenApiOperation(operationId: "CreateTodo", tags: new[] { "Todos" }, Summary = "Create a new todo")]
+    [OpenApiOperation(operationId: "CreateTodo", tags: new[] { "Todos" }, Summary = "Create a new todo (requires JWT token)")]
+    [OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiRequestBody(contentType: "application/json", bodyType: typeof(CreateTodoRequest), Required = true, Description = "Todo creation request")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.Created, contentType: "application/json", bodyType: typeof(TodoDto), Summary = "Todo created")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.BadRequest, contentType: "application/json", bodyType: typeof(object), Summary = "Invalid request")]
+    [OpenApiResponseWithBody(statusCode: HttpStatusCode.Unauthorized, contentType: "application/json", bodyType: typeof(object), Summary = "Unauthorized")]
     public async Task<HttpResponseData> CreateTodo(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "todos")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "todos")] HttpRequestData req,
+        FunctionContext context)
     {
         try
         {
             _logger.LogInformation("Creating new todo");
+
+            var userId = GetUserIdFromToken(req);
 
             var request = await req.ReadFromJsonAsync<CreateTodoRequest>();
             if (request == null)
@@ -63,11 +107,18 @@ public class TodoFunctions
                 return validationResponse;
             }
 
-            var todo = await _todoService.CreateTodoAsync(request);
+            var todo = await _todoService.CreateTodoAsync(userId, request);
 
             var response = req.CreateResponse(HttpStatusCode.Created);
             await response.WriteAsJsonAsync(todo);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (TodoValidationException ex)
         {
@@ -86,7 +137,8 @@ public class TodoFunctions
     }
 
     [Function("GetTodos")]
-    [OpenApiOperation(operationId: "GetTodos", tags: new[] { "Todos" }, Summary = "Get todos with filtering, sorting and pagination")]
+    [OpenApiOperation(operationId: "GetTodos", tags: new[] { "Todos" }, Summary = "Get todos with filtering, sorting and pagination (requires JWT token)")]
+    [OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiParameter(name: "isCompleted", In = Microsoft.OpenApi.Models.ParameterLocation.Query, Type = typeof(bool?), Summary = "Filter by completion status")]
     [OpenApiParameter(name: "priority", In = Microsoft.OpenApi.Models.ParameterLocation.Query, Type = typeof(int?), Summary = "Filter by priority (1=Low, 2=Medium, 3=High, 4=Critical)")]
     [OpenApiParameter(name: "category", In = Microsoft.OpenApi.Models.ParameterLocation.Query, Type = typeof(int?), Summary = "Filter by category")]
@@ -107,8 +159,10 @@ public class TodoFunctions
         {
             _logger.LogInformation("Getting todos with query parameters");
 
+            var userId = GetUserIdFromToken(req);
+
             var queryParams = ExtractQueryParameters(req);
-            
+
             // Validate query parameters
             var (isValid, validationResponse) = await ValidationHelper.ValidateAsync(_queryParametersValidator, queryParams, req);
             if (!isValid && validationResponse != null)
@@ -116,11 +170,18 @@ public class TodoFunctions
                 return validationResponse;
             }
 
-            var todos = await _todoService.GetTodosAsync(queryParams);
+            var todos = await _todoService.GetTodosAsync(userId, queryParams);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(todos);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (TodoValidationException ex)
         {
@@ -177,6 +238,7 @@ public class TodoFunctions
 
     [Function("GetTodoById")]
     [OpenApiOperation(operationId: "GetTodoById", tags: new[] { "Todos" }, Summary = "Get a todo by ID")]
+    ////[OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiParameter(name: "id", In = Microsoft.OpenApi.Models.ParameterLocation.Path, Required = true, Type = typeof(long), Summary = "Todo ID")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(TodoDto), Summary = "Todo found")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.NotFound, contentType: "application/json", bodyType: typeof(object), Summary = "Todo not found")]
@@ -188,11 +250,20 @@ public class TodoFunctions
         {
             _logger.LogInformation("Getting todo by ID: {TodoId}", id);
 
-            var todo = await _todoService.GetTodoByIdAsync(id);
+            var userId = GetUserIdFromToken(req);
+
+            var todo = await _todoService.GetTodoByIdAsync(userId, id);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(todo);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (TodoNotFoundException ex)
         {
@@ -212,6 +283,7 @@ public class TodoFunctions
 
     [Function("UpdateTodo")]
     [OpenApiOperation(operationId: "UpdateTodo", tags: new[] { "Todos" }, Summary = "Update a todo")]
+    ////[OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiParameter(name: "id", In = Microsoft.OpenApi.Models.ParameterLocation.Path, Required = true, Type = typeof(long), Summary = "Todo ID")]
     [OpenApiRequestBody(contentType: "application/json", bodyType: typeof(UpdateTodoRequest), Required = true, Description = "Todo update request")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(TodoDto), Summary = "Todo updated")]
@@ -224,6 +296,8 @@ public class TodoFunctions
         try
         {
             _logger.LogInformation("Updating todo with ID: {TodoId}", id);
+
+            var userId = GetUserIdFromToken(req);
 
             var request = await req.ReadFromJsonAsync<UpdateTodoRequest>();
             if (request == null)
@@ -240,11 +314,18 @@ public class TodoFunctions
                 return validationResponse;
             }
 
-                        var todo = await _todoService.UpdateTodoAsync(id, request);
+            var todo = await _todoService.UpdateTodoAsync(userId, id, request);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(todo);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (TodoNotFoundException ex)
         {
@@ -271,6 +352,7 @@ public class TodoFunctions
 
     [Function("DeleteTodo")]
     [OpenApiOperation(operationId: "DeleteTodo", tags: new[] { "Todos" }, Summary = "Delete a todo")]
+    ////[OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiParameter(name: "id", In = Microsoft.OpenApi.Models.ParameterLocation.Path, Required = true, Type = typeof(long), Summary = "Todo ID")]
     [OpenApiResponseWithoutBody(statusCode: HttpStatusCode.NoContent, Summary = "Todo deleted")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.NotFound, contentType: "application/json", bodyType: typeof(object), Summary = "Todo not found")]
@@ -282,8 +364,10 @@ public class TodoFunctions
         {
             _logger.LogInformation("Deleting todo with ID: {TodoId}", id);
 
-            var deleted = await _todoService.DeleteTodoAsync(id);
-            
+            var userId = GetUserIdFromToken(req);
+
+            var deleted = await _todoService.DeleteTodoAsync(userId, id);
+
             if (!deleted)
             {
                 var notFoundResponse = req.CreateResponse(HttpStatusCode.NotFound);
@@ -292,6 +376,13 @@ public class TodoFunctions
             }
 
             return req.CreateResponse(HttpStatusCode.NoContent);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (Exception ex)
         {
@@ -304,6 +395,7 @@ public class TodoFunctions
 
     [Function("SearchTodos")]
     [OpenApiOperation(operationId: "SearchTodos", tags: new[] { "Todos" }, Summary = "Search todos by term")]
+    ////[OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiParameter(name: "q", In = Microsoft.OpenApi.Models.ParameterLocation.Query, Required = true, Type = typeof(string), Summary = "Search term")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(IEnumerable<TodoDto>), Summary = "Search results")]
     public async Task<HttpResponseData> SearchTodos(
@@ -323,11 +415,20 @@ public class TodoFunctions
 
             _logger.LogInformation("Searching todos with term: {SearchTerm}", searchTerm);
 
-            var todos = await _todoService.SearchTodosAsync(searchTerm);
+            var userId = GetUserIdFromToken(req);
+
+            var todos = await _todoService.SearchTodosAsync(userId, searchTerm);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(todos);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (Exception ex)
         {
@@ -340,6 +441,7 @@ public class TodoFunctions
 
     [Function("GetOverdueTodos")]
     [OpenApiOperation(operationId: "GetOverdueTodos", tags: new[] { "Todos" }, Summary = "Get overdue todos")]
+    ////[OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(IEnumerable<TodoDto>), Summary = "List of overdue todos")]
     public async Task<HttpResponseData> GetOverdueTodos(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "todos/overdue")] HttpRequestData req)
@@ -348,11 +450,20 @@ public class TodoFunctions
         {
             _logger.LogInformation("Getting overdue todos");
 
-            var todos = await _todoService.GetOverdueTodosAsync();
+            var userId = GetUserIdFromToken(req);
+
+            var todos = await _todoService.GetOverdueTodosAsync(userId);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(todos);
             return response;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogWarning("Unauthorized access: {Message}", ex.Message);
+            var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
+            await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
+            return unauthorizedResponse;
         }
         catch (Exception ex)
         {

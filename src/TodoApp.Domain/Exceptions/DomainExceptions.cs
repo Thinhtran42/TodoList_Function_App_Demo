@@ -8,6 +8,12 @@ public class TodoNotFoundException : Exception
         TodoId = id;
     }
 
+    public TodoNotFoundException(string message) 
+        : base(message)
+    {
+        TodoId = 0;
+    }
+
     public long TodoId { get; }
 }
 

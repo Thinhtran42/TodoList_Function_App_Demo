@@ -15,20 +15,42 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
     {
     }
 
-    public async Task<IEnumerable<TodoItem>> GetCompletedTodosAsync()
+    // User-specific methods
+    public async Task<TodoItem?> GetByIdAsync(long userId, long id)
     {
         return await DbSet
             .AsNoTracking()
-            .Where(x => x.IsCompleted)
+            .FirstOrDefaultAsync(x => x.Id == id && x.UserId == userId);
+    }
+
+    public async Task<IEnumerable<TodoItem>> GetAllAsync(long userId)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(x => x.UserId == userId)
             .OrderByDescending(x => x.Id)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<TodoItem>> GetIncompleteTodosAsync()
+    public async Task<bool> ExistsAsync(long userId, long id)
+    {
+        return await DbSet.AnyAsync(x => x.Id == id && x.UserId == userId);
+    }
+
+    public async Task<IEnumerable<TodoItem>> GetCompletedTodosAsync(long userId)
     {
         return await DbSet
             .AsNoTracking()
-            .Where(x => !x.IsCompleted)
+            .Where(x => x.IsCompleted && x.UserId == userId)
+            .OrderByDescending(x => x.Id)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<TodoItem>> GetIncompleteTodosAsync(long userId)
+    {
+        return await DbSet
+            .AsNoTracking()
+            .Where(x => !x.IsCompleted && x.UserId == userId)
             .OrderByDescending(x => x.Id)
             .ToListAsync();
     }
@@ -64,9 +86,9 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
         return existingTodo;
     }
 
-    public async Task<TodoApp.Application.Common.PagedResult<TodoItem>> GetTodosAsync(TodoQueryParameters parameters)
+    public async Task<TodoApp.Application.Common.PagedResult<TodoItem>> GetTodosAsync(long userId, TodoQueryParameters parameters)
     {
-        var query = DbSet.AsNoTracking().AsQueryable();
+        var query = DbSet.AsNoTracking().Where(x => x.UserId == userId);
 
         // Apply filters
         if (parameters.IsCompleted.HasValue)
@@ -120,7 +142,7 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
         return await query.ToPaginatedResultAsync(parameters);
     }
 
-    public async Task<IEnumerable<TodoItem>> SearchTodosAsync(string searchTerm)
+    public async Task<IEnumerable<TodoItem>> SearchTodosAsync(long userId, string searchTerm)
     {
         if (string.IsNullOrEmpty(searchTerm))
         {
@@ -130,15 +152,15 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
         var lowerSearchTerm = searchTerm.ToLower();
         return await DbSet
             .AsNoTracking()
-            .Where(x => 
+            .Where(x => x.UserId == userId && (
                 x.Title.ToLower().Contains(lowerSearchTerm) ||
                 (x.Description != null && x.Description.ToLower().Contains(lowerSearchTerm)) ||
-                (x.Tags != null && x.Tags.ToLower().Contains(lowerSearchTerm)))
+                (x.Tags != null && x.Tags.ToLower().Contains(lowerSearchTerm))))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<TodoItem>> GetTodosByTagsAsync(string tags)
+    public async Task<IEnumerable<TodoItem>> GetTodosByTagsAsync(long userId, string tags)
     {
         if (string.IsNullOrEmpty(tags))
         {
@@ -148,17 +170,17 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
         var lowerTags = tags.ToLower();
         return await DbSet
             .AsNoTracking()
-            .Where(x => x.Tags != null && x.Tags.ToLower().Contains(lowerTags))
+            .Where(x => x.UserId == userId && x.Tags != null && x.Tags.ToLower().Contains(lowerTags))
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<TodoItem>> GetOverdueTodosAsync()
+    public async Task<IEnumerable<TodoItem>> GetOverdueTodosAsync(long userId)
     {
         var now = DateTime.UtcNow;
         return await DbSet
             .AsNoTracking()
-            .Where(x => !x.IsCompleted && x.DueDate.HasValue && x.DueDate.Value < now)
+            .Where(x => x.UserId == userId && !x.IsCompleted && x.DueDate.HasValue && x.DueDate.Value < now)
             .OrderBy(x => x.DueDate)
             .ToListAsync();
     }

@@ -9,13 +9,17 @@ public class TodoItem : BaseEntity
     public Category Category { get; set; } = Category.General;
     public DateTime? DueDate { get; set; }
     public string? Tags { get; set; }
+    public long UserId { get; set; } // Foreign key to User
+
+    // Navigation property
+    public virtual User? User { get; set; }
 
     // Domain business rules
     public void MarkAsCompleted()
     {
         if (IsCompleted)
             throw new InvalidOperationException("Todo is already completed");
-            
+
         IsCompleted = true;
         UpdateTimestamp();
     }
@@ -24,7 +28,7 @@ public class TodoItem : BaseEntity
     {
         if (!IsCompleted)
             throw new InvalidOperationException("Todo is already incomplete");
-            
+
         IsCompleted = false;
         UpdateTimestamp();
     }
@@ -33,10 +37,10 @@ public class TodoItem : BaseEntity
     {
         if (string.IsNullOrWhiteSpace(newTitle))
             throw new ArgumentException("Title cannot be empty", nameof(newTitle));
-            
+
         if (newTitle.Length > 500)
             throw new ArgumentException("Title cannot exceed 500 characters", nameof(newTitle));
-            
+
         Title = newTitle.Trim();
         UpdateTimestamp();
     }
@@ -45,7 +49,7 @@ public class TodoItem : BaseEntity
     {
         if (description != null && description.Length > 2000)
             throw new ArgumentException("Description cannot exceed 2000 characters", nameof(description));
-            
+
         Description = description?.Trim();
         UpdateTimestamp();
     }
@@ -66,7 +70,7 @@ public class TodoItem : BaseEntity
     {
         if (dueDate.HasValue && dueDate.Value < DateTime.UtcNow.Date)
             throw new ArgumentException("Due date cannot be in the past", nameof(dueDate));
-            
+
         DueDate = dueDate;
         UpdateTimestamp();
     }
@@ -75,7 +79,7 @@ public class TodoItem : BaseEntity
     {
         if (tags != null && tags.Length > 500)
             throw new ArgumentException("Tags cannot exceed 500 characters", nameof(tags));
-            
+
         Tags = tags?.Trim();
         UpdateTimestamp();
     }
@@ -89,7 +93,7 @@ public class TodoItem : BaseEntity
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title cannot be empty", nameof(title));
-            
+
         if (title.Length > 500)
             throw new ArgumentException("Title cannot exceed 500 characters", nameof(title));
 
