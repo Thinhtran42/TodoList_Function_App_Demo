@@ -47,3 +47,12 @@ public class TodoQueryParameters : BaseQueryParameters
     public DateTime? DueDateTo { get; set; }
     public string? Tags { get; set; }
 }
+
+public class ExportResponse
+{
+    public string Message { get; set; } = string.Empty;
+    public string? DownloadUrl { get; set; }
+    public int ExportedCount { get; set; }
+    public DateTime ExportedAt { get; set; }
+    public string? FileName { get; set; }
+}

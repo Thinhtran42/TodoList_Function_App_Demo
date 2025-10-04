@@ -3,12 +3,14 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Abstractions;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Configurations;
 using Microsoft.OpenApi.Models;
 using TodoApp.API.Middleware;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure;
+using TodoApp.Infrastructure.Extensions;
 
 // Azure Functions Application Builder - This will never be null
 var builder = FunctionsApplication.CreateBuilder(args);
@@ -16,10 +18,6 @@ var builder = FunctionsApplication.CreateBuilder(args);
 builder.Configuration
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
-
-// Get connection string
-var connectionString = builder.Configuration.GetConnectionString("TodoDb")
-    ?? throw new InvalidOperationException("Connection string 'TodoDb' not found.");
 
 // Configure JWT Settings
 var jwtSettings = new JwtSettings();
@@ -33,8 +31,15 @@ if (string.IsNullOrEmpty(jwtSettings.Issuer))
 if (string.IsNullOrEmpty(jwtSettings.Audience))
     throw new InvalidOperationException("JWT Audience is required.");
 
-// Add Infrastructure services (includes DbContext, Repositories, and Services)
-builder.Services.AddInfrastructure(connectionString);
+// Determine which database provider to use
+var databaseProvider = builder.Configuration["DatabaseProvider"]?.ToLower() switch
+{
+    "cosmosdb" => DatabaseProvider.CosmosDB,
+    _ => DatabaseProvider.PostgreSQL
+};
+
+// Add Infrastructure services based on provider
+builder.Services.AddInfrastructureWithProvider(builder.Configuration, databaseProvider);
 builder.Services.AddJwtSettings(jwtSettings);
 
 // Configure OpenAPI với JWT Authentication
@@ -69,4 +74,38 @@ builder.Services
     .AddApplicationInsightsTelemetryWorkerService()
     .ConfigureFunctionsApplicationInsights();
 
-builder.Build().Run();
+var app = builder.Build();
+
+// Initialize database if using Cosmos DB
+if (databaseProvider == DatabaseProvider.CosmosDB)
+{
+    using var scope = app.Services.CreateScope();
+    var services = scope.ServiceProvider;
+    
+    try
+    {
+        var cosmosClient = services.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>();
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        
+        logger.LogInformation("Initializing Cosmos DB...");
+        
+        // Initialize database and containers using direct Cosmos SDK
+        var databaseName = builder.Configuration["CosmosDB:DatabaseName"] ?? "TodoApp";
+        var database = await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseName);
+        
+        // Create containers with proper partition keys
+        await database.Database.CreateContainerIfNotExistsAsync("Users", "/DomainId");
+        await database.Database.CreateContainerIfNotExistsAsync("TodoItems", "/userId");
+        await database.Database.CreateContainerIfNotExistsAsync("RefreshTokens", "/userId");
+        
+        logger.LogInformation("✅ Cosmos DB initialized successfully!");
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "❌ Error initializing Cosmos DB: {Message}", ex.Message);
+        throw;
+    }
+}
+
+app.Run();

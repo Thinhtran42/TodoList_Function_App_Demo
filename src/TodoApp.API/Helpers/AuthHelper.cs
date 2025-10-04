@@ -97,4 +97,39 @@ public static class AuthHelper
             return Task.FromResult<long?>(null);
         }
     }
+
+    /// <summary>
+    /// Extract and validate user ID from JWT token (synchronous version)
+    /// </summary>
+    public static long GetUserIdFromToken(HttpRequestData req, IJwtService jwtService)
+    {
+        // Check if Authorization header exists
+        if (!req.Headers.Contains("Authorization"))
+        {
+            throw new UnauthorizedAccessException("No authorization header provided");
+        }
+
+        var authHeader = req.Headers.GetValues("Authorization").FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+        {
+            throw new UnauthorizedAccessException("No valid authorization token provided");
+        }
+
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+
+        // Validate token signature and get claims principal
+        var principal = jwtService.ValidateToken(token);
+        if (principal == null)
+        {
+            throw new UnauthorizedAccessException("Invalid token");
+        }
+
+        var userIdClaim = principal.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !long.TryParse(userIdClaim.Value, out var userId))
+        {
+            throw new UnauthorizedAccessException("Invalid user ID in token");
+        }
+
+        return userId;
+    }
 }
