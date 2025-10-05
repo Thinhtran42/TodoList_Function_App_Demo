@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<ICsvExportService, CsvExportService>();
+        services.AddScoped<ICsvImportService, TodoApp.Application.Services.CsvImportService>();
 
         // Add Todo Validators
         services.AddScoped<IValidator<CreateTodoRequest>, CreateTodoRequestValidator>();
@@ -152,6 +153,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<ICsvExportService, CsvExportService>();
+        services.AddScoped<ICsvImportService, TodoApp.Application.Services.CsvImportService>();
 
         // Add Todo Validators
         services.AddScoped<IValidator<CreateTodoRequest>, CreateTodoRequestValidator>();
