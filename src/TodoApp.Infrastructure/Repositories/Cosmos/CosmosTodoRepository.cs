@@ -17,7 +17,7 @@ public class CosmosTodoRepository : ITodoRepository
     {
         _cosmosClient = cosmosClient;
         var databaseName = configuration["CosmosDB:DatabaseName"] ?? "TodoApp";
-        
+
         var database = _cosmosClient.GetDatabase(databaseName);
         _todoItemsContainer = database.GetContainer("TodoItems");
     }
@@ -26,10 +26,10 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.DomainId = @domainId")
             .WithParameter("@domainId", id);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault()?.ToDomain();
     }
 
@@ -37,14 +37,14 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT * FROM c ORDER BY c.DomainId DESC");
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
@@ -52,13 +52,15 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var cosmosTodoItem = CosmosTodoItem.FromDomain(entity);
         cosmosTodoItem.id = Guid.NewGuid().ToString();
+        // Generate unique DomainId using timestamp (ticks)
+        cosmosTodoItem.DomainId = DateTime.UtcNow.Ticks;
         cosmosTodoItem.createdAt = DateTime.UtcNow;
         cosmosTodoItem.updatedAt = DateTime.UtcNow;
-        
+
         var response = await _todoItemsContainer.CreateItemAsync(
-            cosmosTodoItem, 
+            cosmosTodoItem,
             new PartitionKey(cosmosTodoItem.userId));
-            
+
         return response.Resource.ToDomain();
     }
 
@@ -69,11 +71,11 @@ public class CosmosTodoRepository : ITodoRepository
             var query = new QueryDefinition("SELECT * FROM c WHERE c.DomainId = @domainId AND c.userId = @userId")
                 .WithParameter("@domainId", entity.Id)
                 .WithParameter("@userId", entity.UserId);
-                
+
             var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
             var response = await iterator.ReadNextAsync();
             var existingItem = response.FirstOrDefault();
-            
+
             if (existingItem == null)
                 return null;
 
@@ -88,10 +90,10 @@ public class CosmosTodoRepository : ITodoRepository
             existingItem.updatedAt = DateTime.UtcNow;
 
             var updateResponse = await _todoItemsContainer.ReplaceItemAsync(
-                existingItem, 
+                existingItem,
                 existingItem.id,
                 new PartitionKey(existingItem.userId));
-                
+
             return updateResponse.Resource.ToDomain();
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -106,11 +108,11 @@ public class CosmosTodoRepository : ITodoRepository
         {
             var query = new QueryDefinition("SELECT * FROM c WHERE c.DomainId = @domainId")
                 .WithParameter("@domainId", id);
-                
+
             var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
             var response = await iterator.ReadNextAsync();
             var item = response.FirstOrDefault();
-            
+
             if (item == null)
                 return false;
 
@@ -129,10 +131,10 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.DomainId = @domainId")
             .WithParameter("@domainId", id);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<int>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault() > 0;
     }
 
@@ -141,10 +143,10 @@ public class CosmosTodoRepository : ITodoRepository
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND c.DomainId = @domainId")
             .WithParameter("@userId", userId)
             .WithParameter("@domainId", id);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault()?.ToDomain();
     }
 
@@ -152,16 +154,16 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId ORDER BY c.DomainId DESC")
             .WithParameter("@userId", userId);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
@@ -170,10 +172,10 @@ public class CosmosTodoRepository : ITodoRepository
         var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.userId = @userId AND c.DomainId = @domainId")
             .WithParameter("@userId", userId)
             .WithParameter("@domainId", id);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<int>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault() > 0;
     }
 
@@ -181,16 +183,16 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND c.isCompleted = true ORDER BY c.DomainId DESC")
             .WithParameter("@userId", userId);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
@@ -198,16 +200,16 @@ public class CosmosTodoRepository : ITodoRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND c.isCompleted = false ORDER BY c.DomainId DESC")
             .WithParameter("@userId", userId);
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
@@ -238,13 +240,15 @@ public class CosmosTodoRepository : ITodoRepository
         if (parameters.DueDateFrom.HasValue)
         {
             conditions.Add("c.dueDate >= @dueDateFrom");
-            queryParams.Add("@dueDateFrom", parameters.DueDateFrom.Value);
+            // Workaround for Cosmos DB Emulator bug with DateTime parameters
+            queryParams.Add("@dueDateFrom", parameters.DueDateFrom.Value.ToString("o"));
         }
 
         if (parameters.DueDateTo.HasValue)
         {
             conditions.Add("c.dueDate <= @dueDateTo");
-            queryParams.Add("@dueDateTo", parameters.DueDateTo.Value);
+            // Workaround for Cosmos DB Emulator bug with DateTime parameters
+            queryParams.Add("@dueDateTo", parameters.DueDateTo.Value.ToString("o"));
         }
 
         if (!string.IsNullOrEmpty(parameters.SearchTerm))
@@ -260,7 +264,7 @@ public class CosmosTodoRepository : ITodoRepository
         }
 
         var whereClause = string.Join(" AND ", conditions);
-        
+
         // Count query
         var countSql = $"SELECT VALUE COUNT(1) FROM c WHERE {whereClause}";
         var countQuery = new QueryDefinition(countSql);
@@ -268,7 +272,7 @@ public class CosmosTodoRepository : ITodoRepository
         {
             countQuery = countQuery.WithParameter(param.Key, param.Value);
         }
-        
+
         var countIterator = _todoItemsContainer.GetItemQueryIterator<int>(countQuery);
         var countResponse = await countIterator.ReadNextAsync();
         var totalItems = countResponse.FirstOrDefault();
@@ -277,16 +281,16 @@ public class CosmosTodoRepository : ITodoRepository
         var sortBy = parameters.SortBy ?? "createdAt";
         var sortDirection = parameters.SortDescending ? "DESC" : "ASC";
         var skip = (parameters.Page - 1) * parameters.PageSize;
-        
+
         var dataSql = $"SELECT * FROM c WHERE {whereClause} ORDER BY c.{sortBy} {sortDirection} OFFSET {skip} LIMIT {parameters.PageSize}";
         var dataQuery = new QueryDefinition(dataSql);
         foreach (var param in queryParams)
         {
             dataQuery = dataQuery.WithParameter(param.Key, param.Value);
         }
-        
+
         var dataIterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(dataQuery);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (dataIterator.HasMoreResults)
         {
@@ -312,16 +316,16 @@ public class CosmosTodoRepository : ITodoRepository
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND (CONTAINS(LOWER(c.title), @searchTerm) OR CONTAINS(LOWER(c.description), @searchTerm) OR CONTAINS(LOWER(c.tags), @searchTerm)) ORDER BY c.createdAt DESC")
             .WithParameter("@userId", userId)
             .WithParameter("@searchTerm", searchTerm.ToLower());
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
@@ -335,35 +339,38 @@ public class CosmosTodoRepository : ITodoRepository
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND CONTAINS(LOWER(c.tags), @tags) ORDER BY c.createdAt DESC")
             .WithParameter("@userId", userId)
             .WithParameter("@tags", tags.ToLower());
-            
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 
     public async Task<IEnumerable<DomainTodoItem>> GetOverdueTodosAsync(long userId)
     {
-        var now = DateTime.UtcNow;
+        // Workaround for Cosmos DB Emulator bug with DateTime parameters
+        // Use ISO 8601 string format instead of DateTime object
+        var nowString = DateTime.UtcNow.ToString("o"); // ISO 8601 format
+
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND c.isCompleted = false AND c.dueDate < @now ORDER BY c.dueDate")
             .WithParameter("@userId", userId)
-            .WithParameter("@now", now);
-            
+            .WithParameter("@now", nowString);
+
         var iterator = _todoItemsContainer.GetItemQueryIterator<CosmosTodoItem>(query);
-        
+
         var todoItems = new List<DomainTodoItem>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             todoItems.AddRange(response.Select(t => t.ToDomain()));
         }
-        
+
         return todoItems;
     }
 }

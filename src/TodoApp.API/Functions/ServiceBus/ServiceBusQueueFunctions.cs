@@ -6,14 +6,14 @@ using TodoApp.Application.Interfaces;
 
 namespace TodoApp.API.Functions;
 
-public class ImportQueueFunctions
+public class ServiceBusQueueFunctions
 {
-    private readonly ILogger<ImportQueueFunctions> _logger;
+    private readonly ILogger<ServiceBusQueueFunctions> _logger;
     private readonly ICsvImportService _csvImportService;
     private readonly IBlobService _blobService;
 
-    public ImportQueueFunctions(
-        ILogger<ImportQueueFunctions> logger,
+    public ServiceBusQueueFunctions(
+        ILogger<ServiceBusQueueFunctions> logger,
         ICsvImportService csvImportService,
         IBlobService blobService)
     {

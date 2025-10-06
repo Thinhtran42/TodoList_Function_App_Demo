@@ -59,10 +59,10 @@ public static class DependencyInjection
         {
             case DatabaseProvider.PostgreSQL:
                 return services.AddPostgreSQLInfrastructure(configuration.GetConnectionString("TodoDb")!);
-            
+
             case DatabaseProvider.CosmosDB:
                 return services.AddCosmosDBInfrastructure(configuration);
-            
+
             default:
                 throw new ArgumentException($"Unsupported database provider: {provider}");
         }
@@ -86,9 +86,29 @@ public static class DependencyInjection
     {
         // Add direct Cosmos DB client instead of Entity Framework
         var cosmosConnectionString = configuration.GetConnectionString("CosmosDb");
-        
+
         services.AddSingleton<Microsoft.Azure.Cosmos.CosmosClient>(serviceProvider =>
         {
+            // For local development with Cosmos DB Emulator, bypass SSL certificate validation
+            if (cosmosConnectionString?.Contains("localhost") == true || cosmosConnectionString?.Contains("127.0.0.1") == true)
+            {
+                var options = new Microsoft.Azure.Cosmos.CosmosClientOptions
+                {
+                    HttpClientFactory = () =>
+                    {
+                        var handler = new System.Net.Http.HttpClientHandler
+                        {
+                            // Only for local emulator - bypass SSL validation for self-signed certificates
+                            ServerCertificateCustomValidationCallback = System.Net.Http.HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+                        };
+                        return new System.Net.Http.HttpClient(handler, disposeHandler: true);
+                    },
+                    ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway
+                };
+                return new Microsoft.Azure.Cosmos.CosmosClient(cosmosConnectionString, options);
+            }
+
+            // Production - use default SSL validation
             return new Microsoft.Azure.Cosmos.CosmosClient(cosmosConnectionString);
         });
 
@@ -153,8 +173,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<ICsvImportService, TodoApp.Application.Services.CsvImportService>();
+        services.AddScoped<ICsvExportService, CsvExportService>();
         services.AddScoped<IBlobService, BlobService>();
-        
+
         // Add ServiceBus Service
         services.AddScoped<IServiceBusService, ServiceBusService>();
 

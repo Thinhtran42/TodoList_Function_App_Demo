@@ -1,3 +1,4 @@
+using Microsoft.Azure.Cosmos.Linq;
 using TodoApp.Domain.Entities;
 
 namespace TodoApp.Infrastructure.Data.Models;

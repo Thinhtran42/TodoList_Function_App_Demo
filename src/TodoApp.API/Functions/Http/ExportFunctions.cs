@@ -44,17 +44,27 @@ public class ExportFunctions
     public async Task<HttpResponseData> ExportTodos(
         [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "todos/export")] HttpRequestData req)
     {
+        var startTime = DateTime.UtcNow;
+        long? userId = null;
+
         try
         {
-            _logger.LogInformation("Starting CSV export for user's todos");
+            _logger.LogInformation("=== CSV Export Request Started ===");
 
-            var userId = AuthHelper.GetUserIdFromToken(req, _jwtService);
+            userId = AuthHelper.GetUserIdFromToken(req, _jwtService);
+            _logger.LogInformation("User authenticated successfully. UserId: {UserId}", userId);
 
             // Extract query parameters for filtering
             var queryParams = QueryParameterHelper.ExtractExportQueryParameters(req);
+            _logger.LogInformation("Export filters - IsCompleted: {IsCompleted}, Priority: {Priority}, Category: {Category}",
+                queryParams.IsCompleted?.ToString() ?? "All",
+                queryParams.Priority?.ToString() ?? "All",
+                queryParams.Category?.ToString() ?? "All");
 
             // Get todos based on filters
-            var todos = await _todoService.GetTodosAsync(userId, queryParams);
+            _logger.LogDebug("Fetching todos for user {UserId} with applied filters", userId);
+            var todos = await _todoService.GetTodosAsync(userId.Value, queryParams);
+            _logger.LogInformation("Retrieved {Count} todos for export", todos.Items.Count());
 
             if (!todos.Items.Any())
             {
@@ -71,16 +81,21 @@ public class ExportFunctions
             }
 
             // Export to CSV
+            _logger.LogDebug("Converting todos to CSV format");
             var csvData = await _csvExportService.ExportTodosToCsvAsync(todos.Items);
+            _logger.LogInformation("CSV data generated. Size: {Size} bytes", csvData.Length);
 
             // Generate unique filename
             var fileName = $"todos_export_{userId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
+            _logger.LogDebug("Generated filename: {FileName}", fileName);
 
             // Upload to blob storage and get SAS URL
+            _logger.LogDebug("Uploading CSV to blob storage");
             var downloadUrl = await _csvExportService.UploadCsvToBlobAsync(csvData, fileName);
 
-            _logger.LogInformation("CSV export completed for user {UserId}. File: {FileName}, Count: {Count}", 
-                userId, fileName, todos.Items.Count());
+            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+            _logger.LogInformation("=== CSV Export Completed Successfully === UserId: {UserId}, File: {FileName}, Count: {Count}, Duration: {Duration}s",
+                userId, fileName, todos.Items.Count(), duration.ToString("F2"));
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new ExportResponse
@@ -96,14 +111,17 @@ public class ExportFunctions
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning("Unauthorized access during export: {Message}", ex.Message);
+            _logger.LogWarning("=== Export Failed - Unauthorized === UserId: {UserId}, Message: {Message}",
+                userId?.ToString() ?? "Unknown", ex.Message);
             var unauthorizedResponse = req.CreateResponse(HttpStatusCode.Unauthorized);
             await unauthorizedResponse.WriteAsJsonAsync(new { error = ex.Message });
             return unauthorizedResponse;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during CSV export");
+            var duration = (DateTime.UtcNow - startTime).TotalSeconds;
+            _logger.LogError(ex, "=== Export Failed - Error === UserId: {UserId}, Duration: {Duration}s",
+                userId?.ToString() ?? "Unknown", duration.ToString("F2"));
             var errorResponse = req.CreateResponse(HttpStatusCode.InternalServerError);
             await errorResponse.WriteAsJsonAsync(new { error = "Export failed. Please try again later." });
             return errorResponse;

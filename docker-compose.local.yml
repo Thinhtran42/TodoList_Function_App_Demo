@@ -1,59 +1,39 @@
-version: '3.8'
+version: '3.9'
 
 services:
-  # SQL Edge (backend cho Service Bus Emulator)
-  sql-edge:
-    image: mcr.microsoft.com/azure-sql-edge:latest
-    container_name: sql-edge
-    environment:
-      - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=Password!123
+  functionapp1:
+    build: ./src/FunctionApp.Producer
+    container_name: funcapp1
     ports:
-      - "1433:1433"
-
-  # Service Bus Emulator
-  servicebus-emulator:
-    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
-    container_name: servicebus-local
+      - "7071:80"
+    environment:
+      - CosmosDBConnection=AccountEndpoint=https://cosmosdb:8081/;AccountKey=key;
+      - ServiceBusConnection=Endpoint=sb://servicebus:5672/;
     depends_on:
-      - sql-edge
+      - cosmosdb
+      - servicebus
+
+  functionapp2:
+    build: ./src/FunctionApp.Consumer
+    container_name: funcapp2
     ports:
-      - "5672:5672"   # AMQP
-      - "5671:5671"   # AMQPS
+      - "7072:80"
+    deploy:
+      replicas: 2   # scale consumer
     environment:
-      - ACCEPT_EULA=Y
-      - SERVICEBUS_EMULATOR_CONFIG_PATH=/ServiceBus_Emulator/ConfigFiles/Config.json
-      - SQL_SERVER=sql-edge,1433
-      - SQL_USERNAME=sa
-      - SQL_PASSWORD=Password!123
-    volumes:
-      - ./servicebus-config:/ServiceBus_Emulator/ConfigFiles
+      - CosmosDBConnection=AccountEndpoint=https://cosmosdb:8081/;AccountKey=key;
+      - ServiceBusConnection=Endpoint=sb://servicebus:5672/;
+    depends_on:
+      - cosmosdb
+      - servicebus
 
-  # Azurite for Blob/Queue/Table Storage
-  azurite:
-    image: mcr.microsoft.com/azure-storage/azurite:latest
-    container_name: azurite-local
-    ports:
-      - "10000:10000"
-      - "10001:10001"
-      - "10002:10002"
-    volumes:
-      - azurite-data:/data
-    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
-
-  # Cosmos DB Emulator (⚠️ optional, không chạy được trên Mac ARM64)
-  cosmosdb-emulator:
-    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
-    container_name: cosmosdb-local
+  cosmosdb:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
     ports:
       - "8081:8081"
-    environment:
-      - AZURE_COSMOS_EMULATOR_PARTITION_COUNT=10
-      - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=true
-      - AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE=127.0.0.1
-    volumes:
-      - cosmosdb-data:/data/db
+      - "1234:1234"
 
-volumes:
-  cosmosdb-data:
-  azurite-data:
+  servicebus:
+    image: ghcr.io/azure/azure-service-bus-emulator:latest
+    ports:
+      - "5672:5672"

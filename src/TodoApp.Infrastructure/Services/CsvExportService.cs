@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Text;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
+using TodoApp.Infrastructure.Data.Models;
 
 namespace TodoApp.Infrastructure.Services;
 
@@ -27,14 +28,17 @@ public class CsvExportService : ICsvExportService
     {
         try
         {
+            var todoList = todos.ToList();
+            _logger.LogInformation("Starting CSV export for {Count} todos", todoList.Count);
+
             using var memoryStream = new MemoryStream();
             using var writer = new StreamWriter(memoryStream, Encoding.UTF8);
             using var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
 
             // Map TodoDto to CSV-friendly format
-            var csvRecords = todos.Select(todo => new TodoCsvRecord
+            var csvRecords = todoList.Select(todo => new TodoCsvRecord
             {
-                Id = todo.Id,
+                Id = todo.Id.ToString(),
                 Title = todo.Title,
                 Description = todo.Description ?? string.Empty,
                 IsCompleted = todo.IsCompleted,
@@ -44,11 +48,17 @@ public class CsvExportService : ICsvExportService
                 Tags = todo.Tags ?? string.Empty,
                 CreatedAt = todo.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss"),
                 UpdatedAt = todo.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss")
-            });
+            }).ToList();
+
+            _logger.LogDebug("CSV records mapped successfully. Writing to stream...");
 
             await csv.WriteRecordsAsync(csvRecords);
             await writer.FlushAsync();
-            
+
+            var csvSize = memoryStream.ToArray().Length;
+            _logger.LogInformation("CSV export completed successfully. Size: {Size} bytes, Records: {Count}",
+                csvSize, csvRecords.Count);
+
             return memoryStream.ToArray();
         }
         catch (Exception ex)
@@ -62,18 +72,29 @@ public class CsvExportService : ICsvExportService
     {
         try
         {
+            _logger.LogInformation("Starting CSV upload to blob storage. File: {FileName}, Size: {Size} bytes",
+                fileName, csvData.Length);
+
             // Ensure container exists
             var containerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
-            await containerClient.CreateIfNotExistsAsync();
+            var containerCreated = await containerClient.CreateIfNotExistsAsync();
+
+            if (containerCreated != null)
+            {
+                _logger.LogInformation("Created new blob container: {ContainerName}", ContainerName);
+            }
 
             // Clean up old files (optional - files older than 7 days)
+            _logger.LogDebug("Starting cleanup of old CSV files");
             await CleanupOldFilesAsync(containerClient);
 
             // Upload blob
             var blobClient = containerClient.GetBlobClient(fileName);
             using var stream = new MemoryStream(csvData);
-            
+
+            _logger.LogDebug("Uploading CSV file to blob storage: {BlobName}", fileName);
             await blobClient.UploadAsync(stream, overwrite: true);
+            _logger.LogInformation("CSV file uploaded successfully: {BlobName}", fileName);
 
             // Generate SAS URL (valid for 1 hour)
             if (blobClient.CanGenerateSasUri)
@@ -89,17 +110,19 @@ public class CsvExportService : ICsvExportService
                 sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
                 var sasUri = blobClient.GenerateSasUri(sasBuilder);
+                _logger.LogInformation("Generated SAS URI for blob: {BlobName}, Expires: {ExpiresOn}",
+                    fileName, sasBuilder.ExpiresOn);
                 return sasUri.ToString();
             }
             else
             {
-                _logger.LogWarning("Cannot generate SAS URI for blob: {BlobName}", fileName);
+                _logger.LogWarning("Cannot generate SAS URI for blob: {BlobName}. Returning public URI", fileName);
                 return blobClient.Uri.ToString();
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error uploading CSV to blob storage");
+            _logger.LogError(ex, "Error uploading CSV to blob storage. File: {FileName}", fileName);
             throw;
         }
     }
@@ -112,15 +135,32 @@ public class CsvExportService : ICsvExportService
         try
         {
             var cutoffDate = DateTimeOffset.UtcNow.AddDays(-7);
-            
+            _logger.LogDebug("Cleaning up CSV files older than {CutoffDate}", cutoffDate);
+
+            var deletedCount = 0;
             await foreach (var blobItem in containerClient.GetBlobsAsync(prefix: "csv-exports/"))
             {
                 if (blobItem.Properties.LastModified < cutoffDate)
                 {
                     var blobClient = containerClient.GetBlobClient(blobItem.Name);
-                    await blobClient.DeleteIfExistsAsync();
-                    _logger.LogInformation("Deleted old CSV file: {FileName}", blobItem.Name);
+                    var deleted = await blobClient.DeleteIfExistsAsync();
+
+                    if (deleted)
+                    {
+                        deletedCount++;
+                        _logger.LogInformation("Deleted old CSV file: {FileName}, LastModified: {LastModified}",
+                            blobItem.Name, blobItem.Properties.LastModified);
+                    }
                 }
+            }
+
+            if (deletedCount > 0)
+            {
+                _logger.LogInformation("Cleanup completed. Deleted {Count} old CSV files", deletedCount);
+            }
+            else
+            {
+                _logger.LogDebug("No old CSV files to cleanup");
             }
         }
         catch (Exception ex)
@@ -133,7 +173,7 @@ public class CsvExportService : ICsvExportService
 
 public class TodoCsvRecord
 {
-    public long Id { get; set; }
+    public string Id { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsCompleted { get; set; }

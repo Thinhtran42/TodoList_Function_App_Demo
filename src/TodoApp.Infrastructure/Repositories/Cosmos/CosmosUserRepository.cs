@@ -17,7 +17,7 @@ public class CosmosUserRepository : IUserRepository
     {
         _cosmosClient = cosmosClient;
         var databaseName = configuration["CosmosDB:DatabaseName"] ?? "TodoApp";
-        
+
         var database = _cosmosClient.GetDatabase(databaseName);
         _usersContainer = database.GetContainer("Users");
         _refreshTokensContainer = database.GetContainer("RefreshTokens");
@@ -28,9 +28,9 @@ public class CosmosUserRepository : IUserRepository
         try
         {
             var response = await _usersContainer.ReadItemAsync<CosmosUser>(
-                id.ToString(), 
+                id.ToString(),
                 new PartitionKey(id));
-                
+
             return response.Resource?.ToDomain();
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -43,14 +43,14 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT * FROM c ORDER BY c.DomainId DESC");
         var iterator = _usersContainer.GetItemQueryIterator<CosmosUser>(query);
-        
+
         var users = new List<DomainUser>();
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             users.AddRange(response.Select(u => u.ToDomain()));
         }
-        
+
         return users;
     }
 
@@ -60,11 +60,11 @@ public class CosmosUserRepository : IUserRepository
         cosmosUser.id = Guid.NewGuid().ToString();
         cosmosUser.createdAt = DateTime.UtcNow;
         cosmosUser.updatedAt = DateTime.UtcNow;
-        
+
         var response = await _usersContainer.CreateItemAsync(
-            cosmosUser, 
+            cosmosUser,
             new PartitionKey(cosmosUser.DomainId));
-            
+
         return response.Resource.ToDomain();
     }
 
@@ -74,11 +74,11 @@ public class CosmosUserRepository : IUserRepository
         {
             var query = new QueryDefinition("SELECT * FROM c WHERE c.DomainId = @domainId")
                 .WithParameter("@domainId", entity.Id);
-                
+
             var iterator = _usersContainer.GetItemQueryIterator<CosmosUser>(query);
             var response = await iterator.ReadNextAsync();
             var existingUser = response.FirstOrDefault();
-            
+
             if (existingUser == null)
                 return null;
 
@@ -91,10 +91,10 @@ public class CosmosUserRepository : IUserRepository
             existingUser.updatedAt = DateTime.UtcNow;
 
             var updateResponse = await _usersContainer.ReplaceItemAsync(
-                existingUser, 
+                existingUser,
                 existingUser.id,
                 new PartitionKey(existingUser.DomainId));
-                
+
             return updateResponse.Resource.ToDomain();
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -108,7 +108,7 @@ public class CosmosUserRepository : IUserRepository
         try
         {
             await _usersContainer.DeleteItemAsync<CosmosUser>(
-                id.ToString(), 
+                id.ToString(),
                 new PartitionKey(id));
             return true;
         }
@@ -123,7 +123,7 @@ public class CosmosUserRepository : IUserRepository
         try
         {
             await _usersContainer.ReadItemAsync<CosmosUser>(
-                id.ToString(), 
+                id.ToString(),
                 new PartitionKey(id));
             return true;
         }
@@ -137,10 +137,10 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.username = @username")
             .WithParameter("@username", username);
-            
+
         var iterator = _usersContainer.GetItemQueryIterator<CosmosUser>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault()?.ToDomain();
     }
 
@@ -148,10 +148,10 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.email = @email")
             .WithParameter("@email", email);
-            
+
         var iterator = _usersContainer.GetItemQueryIterator<CosmosUser>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault()?.ToDomain();
     }
 
@@ -159,10 +159,10 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.username = @username")
             .WithParameter("@username", username);
-            
+
         var iterator = _usersContainer.GetItemQueryIterator<int>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault() > 0;
     }
 
@@ -170,10 +170,10 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.email = @email")
             .WithParameter("@email", email);
-            
+
         var iterator = _usersContainer.GetItemQueryIterator<int>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault() > 0;
     }
 
@@ -181,10 +181,10 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.token = @token")
             .WithParameter("@token", token);
-            
+
         var iterator = _refreshTokensContainer.GetItemQueryIterator<CosmosRefreshToken>(query);
         var response = await iterator.ReadNextAsync();
-        
+
         return response.FirstOrDefault()?.ToDomain();
     }
 
@@ -194,9 +194,9 @@ public class CosmosUserRepository : IUserRepository
         cosmosRefreshToken.id = Guid.NewGuid().ToString();
         cosmosRefreshToken.createdAt = DateTime.UtcNow;
         cosmosRefreshToken.updatedAt = DateTime.UtcNow;
-        
+
         await _refreshTokensContainer.CreateItemAsync(
-            cosmosRefreshToken, 
+            cosmosRefreshToken,
             new PartitionKey(cosmosRefreshToken.userId));
     }
 
@@ -204,11 +204,11 @@ public class CosmosUserRepository : IUserRepository
     {
         var query = new QueryDefinition("SELECT * FROM c WHERE c.token = @token")
             .WithParameter("@token", token);
-            
+
         var iterator = _refreshTokensContainer.GetItemQueryIterator<CosmosRefreshToken>(query);
         var response = await iterator.ReadNextAsync();
         var refreshToken = response.FirstOrDefault();
-        
+
         if (refreshToken != null)
         {
             await _refreshTokensContainer.DeleteItemAsync<CosmosRefreshToken>(
@@ -219,12 +219,16 @@ public class CosmosUserRepository : IUserRepository
 
     public async Task RemoveExpiredRefreshTokensAsync(long userId)
     {
+        // Workaround for Cosmos DB Emulator bug with DateTime parameters
+        // Use ISO 8601 string format instead of DateTime object
+        var nowString = DateTime.UtcNow.ToString("o"); // ISO 8601 format
+
         var query = new QueryDefinition("SELECT * FROM c WHERE c.userId = @userId AND c.expiresAt < @now")
             .WithParameter("@userId", userId)
-            .WithParameter("@now", DateTime.UtcNow);
-            
+            .WithParameter("@now", nowString);
+
         var iterator = _refreshTokensContainer.GetItemQueryIterator<CosmosRefreshToken>(query);
-        
+
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
@@ -239,14 +243,27 @@ public class CosmosUserRepository : IUserRepository
 
     public async Task<bool> ExistsAsync(string username, string email)
     {
-        var query = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.username = @username OR c.email = @email")
-            .WithParameter("@username", username)
+        // Workaround for Cosmos DB Emulator Linux bug with OR condition in parameterized queries
+        // Split into two separate queries to avoid emulator JSON parsing error
+
+        // Check username first
+        var usernameQuery = new QueryDefinition("SELECT TOP 1 c.id FROM c WHERE c.username = @username")
+            .WithParameter("@username", username);
+
+        var usernameIterator = _usersContainer.GetItemQueryIterator<dynamic>(usernameQuery);
+        var usernameResponse = await usernameIterator.ReadNextAsync();
+
+        if (usernameResponse.Count > 0)
+            return true;
+
+        // Check email second
+        var emailQuery = new QueryDefinition("SELECT TOP 1 c.id FROM c WHERE c.email = @email")
             .WithParameter("@email", email);
-            
-        var iterator = _usersContainer.GetItemQueryIterator<int>(query);
-        var response = await iterator.ReadNextAsync();
-        
-        return response.FirstOrDefault() > 0;
+
+        var emailIterator = _usersContainer.GetItemQueryIterator<dynamic>(emailQuery);
+        var emailResponse = await emailIterator.ReadNextAsync();
+
+        return emailResponse.Count > 0;
     }
 
     public async Task<DomainUser?> GetByIdWithTodosAsync(long id)
