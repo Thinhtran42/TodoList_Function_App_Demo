@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using System.Net;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class HealthFunction
 {

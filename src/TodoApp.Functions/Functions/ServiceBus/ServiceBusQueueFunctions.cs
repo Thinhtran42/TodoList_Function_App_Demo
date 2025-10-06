@@ -4,7 +4,7 @@ using System.Text.Json;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class ServiceBusQueueFunctions
 {

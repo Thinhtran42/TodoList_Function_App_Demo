@@ -9,14 +9,14 @@ using System.Net;
 using System.Web;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using TodoApp.API.Helpers;
+using TodoApp.Functions.Helpers;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
 using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class TodoFunctions
 {

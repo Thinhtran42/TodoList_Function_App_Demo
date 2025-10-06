@@ -6,7 +6,7 @@ using System.Text.Json;
 using TodoApp.Application.DTOs;
 using TodoApp.Infrastructure.Data.Models;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class TodoChangeFeedFunctions
 {

@@ -3,7 +3,7 @@ using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
 using TodoApp.Domain.Entities;
 
-namespace TodoApp.API.Helpers;
+namespace TodoApp.Functions.Helpers;
 
 /// <summary>
 /// Helper for extracting and parsing query parameters from HTTP requests

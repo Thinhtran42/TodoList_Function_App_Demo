@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class ServiceBusTopicFunctions
 {

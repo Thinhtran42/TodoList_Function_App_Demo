@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Abstractions;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Configurations;
 using Microsoft.OpenApi.Models;
-using TodoApp.API.Middleware;
+using TodoApp.Functions.Middleware;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure;
 using TodoApp.Infrastructure.Extensions;

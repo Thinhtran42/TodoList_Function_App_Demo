@@ -7,9 +7,9 @@ using Microsoft.OpenApi.Models;
 using System.Net;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces;
-using TodoApp.API.Helpers;
+using TodoApp.Functions.Helpers;
 
-namespace TodoApp.API.Functions;
+namespace TodoApp.Functions.Functions;
 
 public class ExportFunctions
 {

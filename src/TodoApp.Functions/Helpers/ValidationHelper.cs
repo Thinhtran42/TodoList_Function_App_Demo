@@ -2,7 +2,7 @@ using FluentValidation;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Net;
 
-namespace TodoApp.API.Helpers;
+namespace TodoApp.Functions.Helpers;
 
 public static class ValidationHelper
 {

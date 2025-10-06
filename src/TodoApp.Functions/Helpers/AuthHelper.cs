@@ -6,7 +6,7 @@ using System.Net;
 using System.Security.Claims;
 using TodoApp.Application.Interfaces;
 
-namespace TodoApp.API.Helpers;
+namespace TodoApp.Functions.Helpers;
 
 public static class AuthHelper
 {

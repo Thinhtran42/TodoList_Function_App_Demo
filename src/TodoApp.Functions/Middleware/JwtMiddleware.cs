@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using TodoApp.Application.Interfaces;
 
-namespace TodoApp.API.Middleware;
+namespace TodoApp.Functions.Middleware;
 
 public class JwtMiddleware : IFunctionsWorkerMiddleware
 {
