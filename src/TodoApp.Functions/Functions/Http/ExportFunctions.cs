@@ -89,22 +89,28 @@ public class ExportFunctions
             var fileName = $"todos_export_{userId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
             _logger.LogDebug("Generated filename: {FileName}", fileName);
 
-            // Upload to blob storage and get SAS URL
+            // Upload to blob storage and get SAS URL with metadata
             _logger.LogDebug("Uploading CSV to blob storage");
-            var downloadUrl = await _csvExportService.UploadCsvToBlobAsync(csvData, fileName);
+            var uploadResult = await _csvExportService.UploadCsvToBlobAsync(csvData, fileName);
 
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
-            _logger.LogInformation("=== CSV Export Completed Successfully === UserId: {UserId}, File: {FileName}, Count: {Count}, Duration: {Duration}s",
-                userId, fileName, todos.Items.Count(), duration.ToString("F2"));
+            var validForMinutes = (int)(uploadResult.ExpiresAt - DateTime.UtcNow).TotalMinutes;
+
+            _logger.LogInformation("=== CSV Export Completed Successfully === UserId: {UserId}, File: {FileName}, Count: {Count}, Duration: {Duration}s, Expires: {ExpiresAt}",
+                userId, fileName, todos.Items.Count(), duration.ToString("F2"), uploadResult.ExpiresAt);
 
             var response = req.CreateResponse(HttpStatusCode.OK);
             await response.WriteAsJsonAsync(new ExportResponse
             {
                 Message = "Export completed successfully",
-                DownloadUrl = downloadUrl,
+                DownloadUrl = uploadResult.DownloadUrl,
                 ExportedCount = todos.Items.Count(),
                 ExportedAt = DateTime.UtcNow,
-                FileName = fileName
+                FileName = uploadResult.FileName,
+                ExpiresAt = uploadResult.ExpiresAt,
+                AccessPermissions = uploadResult.Permissions,
+                ValidForMinutes = validForMinutes,
+                StorageInfo = $"Stored in Azure Blob Storage ({uploadResult.ContainerName}), Size: {uploadResult.FileSizeBytes} bytes"
             });
 
             return response;

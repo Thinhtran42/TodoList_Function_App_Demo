@@ -68,7 +68,7 @@ public class CsvExportService : ICsvExportService
         }
     }
 
-    public async Task<string> UploadCsvToBlobAsync(byte[] csvData, string fileName)
+    public async Task<BlobUploadResult> UploadCsvToBlobAsync(byte[] csvData, string fileName)
     {
         try
         {
@@ -97,13 +97,15 @@ public class CsvExportService : ICsvExportService
             _logger.LogInformation("CSV file uploaded successfully: {BlobName}", fileName);
 
             // Generate SAS URL (valid for 1 hour)
+            var expiresOn = DateTimeOffset.UtcNow.AddHours(1);
+
             if (blobClient.CanGenerateSasUri)
             {
                 var sasBuilder = new BlobSasBuilder
                 {
                     BlobContainerName = ContainerName,
                     BlobName = fileName,
-                    ExpiresOn = DateTimeOffset.UtcNow.AddHours(1),
+                    ExpiresOn = expiresOn,
                     Resource = "b"
                 };
 
@@ -112,12 +114,29 @@ public class CsvExportService : ICsvExportService
                 var sasUri = blobClient.GenerateSasUri(sasBuilder);
                 _logger.LogInformation("Generated SAS URI for blob: {BlobName}, Expires: {ExpiresOn}",
                     fileName, sasBuilder.ExpiresOn);
-                return sasUri.ToString();
+
+                return new BlobUploadResult
+                {
+                    DownloadUrl = sasUri.ToString(),
+                    FileName = fileName,
+                    ExpiresAt = expiresOn.UtcDateTime,
+                    Permissions = "Read",
+                    ContainerName = ContainerName,
+                    FileSizeBytes = csvData.Length
+                };
             }
             else
             {
                 _logger.LogWarning("Cannot generate SAS URI for blob: {BlobName}. Returning public URI", fileName);
-                return blobClient.Uri.ToString();
+                return new BlobUploadResult
+                {
+                    DownloadUrl = blobClient.Uri.ToString(),
+                    FileName = fileName,
+                    ExpiresAt = DateTime.MaxValue, // Public URL doesn't expire
+                    Permissions = "Public Read",
+                    ContainerName = ContainerName,
+                    FileSizeBytes = csvData.Length
+                };
             }
         }
         catch (Exception ex)
