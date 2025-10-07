@@ -24,7 +24,7 @@ public class ServiceBusQueueFunctions
 
     [Function("ProcessImportQueue")]
     public async Task ProcessImportMessage(
-        [ServiceBusTrigger("import-csv-queue", Connection = "ServiceBus")] string messageBody,
+        [ServiceBusTrigger("%ServiceBusQueueName%", Connection = "ConnectionStrings:ServiceBus")] string messageBody,
         FunctionContext context)
     {
         try

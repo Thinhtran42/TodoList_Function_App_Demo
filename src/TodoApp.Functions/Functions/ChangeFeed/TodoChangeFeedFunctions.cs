@@ -14,7 +14,7 @@ public class TodoChangeFeedFunctions
     private readonly ILogger<TodoChangeFeedFunctions> _logger;
     private readonly ServiceBusClient _serviceBusClient;
     private readonly IConfiguration _configuration;
-    private const string TopicName = "todo-notify-topic";
+    private readonly string _topicName;
 
     public TodoChangeFeedFunctions(
         ILogger<TodoChangeFeedFunctions> logger,
@@ -25,6 +25,7 @@ public class TodoChangeFeedFunctions
 
         var serviceBusConnection = configuration.GetConnectionString("ServiceBus");
         _serviceBusClient = new ServiceBusClient(serviceBusConnection);
+        _topicName = configuration["ServiceBusTopicName"] ?? "todo-notify-topic";
     }
 
     [Function("TodoChangeFeedTrigger")]
@@ -44,7 +45,7 @@ public class TodoChangeFeedFunctions
                 _logger.LogInformation("=== Cosmos DB Change Feed Triggered ===");
                 _logger.LogInformation("Documents modified: {Count}", input.Count);
 
-                var sender = _serviceBusClient.CreateSender(TopicName);
+                var sender = _serviceBusClient.CreateSender(_topicName);
 
                 foreach (var document in input)
                 {

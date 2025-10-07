@@ -17,7 +17,7 @@ public class ServiceBusTopicFunctions
 
     [Function("ServiceBusTopicTrigger_TodoNotifyHandler")]
     public async Task Run(
-        [ServiceBusTrigger("todo-notify-topic", "todo-notification-subscription",
+        [ServiceBusTrigger("%ServiceBusTopicName%", "%ServiceBusSubscriptionName%",
             Connection = "ConnectionStrings:ServiceBus")]
         ServiceBusReceivedMessage message,
         ServiceBusMessageActions messageActions)
