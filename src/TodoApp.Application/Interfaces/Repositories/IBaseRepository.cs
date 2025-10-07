@@ -1,6 +1,6 @@
 using TodoApp.Domain.Entities;
 
-namespace TodoApp.Application.Interfaces;
+namespace TodoApp.Application.Interfaces.Repositories;
 
 public interface IBaseRepository<TEntity> where TEntity : BaseEntity
 {

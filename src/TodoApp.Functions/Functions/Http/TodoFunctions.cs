@@ -12,8 +12,9 @@ using System.Security.Claims;
 using TodoApp.Functions.Helpers;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
 using TodoApp.Domain.Exceptions;
 
 namespace TodoApp.Functions.Functions;

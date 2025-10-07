@@ -1,3 +1,5 @@
+using TodoApp.Domain.Enums;
+
 namespace TodoApp.Domain.Entities;
 
 public class TodoItem : BaseEntity

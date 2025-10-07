@@ -6,8 +6,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Settings;
 
 namespace TodoApp.Infrastructure.Services;
 

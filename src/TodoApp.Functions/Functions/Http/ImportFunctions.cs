@@ -7,7 +7,7 @@ using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Http;
 using System.Net;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 using TodoApp.Functions.Helpers;
 
 namespace TodoApp.Functions.Functions;
@@ -38,9 +38,9 @@ public class ImportFunctions
     [OpenApiOperation(operationId: "ImportTodos", tags: new[] { "Import" }, Summary = "Import todos from CSV file (requires JWT token)", Description = "Upload a CSV file to import multiple todo items. The CSV should have columns: Title, Description, DueDate, Priority, IsCompleted")]
     [OpenApiSecurity("Bearer", SecuritySchemeType.Http, Scheme = OpenApiSecuritySchemeType.Bearer, BearerFormat = "JWT")]
     [OpenApiRequestBody(
-        contentType: "multipart/form-data", 
-        bodyType: typeof(FileUploadModel), 
-        Required = true, 
+        contentType: "multipart/form-data",
+        bodyType: typeof(FileUploadModel),
+        Required = true,
         Description = "Select a CSV file to upload")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.Accepted, contentType: "application/json", bodyType: typeof(object), Summary = "Import request accepted and queued for processing")]
     [OpenApiResponseWithBody(statusCode: HttpStatusCode.BadRequest, contentType: "application/json", bodyType: typeof(object), Summary = "Invalid CSV data")]
@@ -58,7 +58,7 @@ public class ImportFunctions
 
             // Read CSV file from multipart form data
             var (csvContent, fileName) = await ReadMultipartFormDataAsync(req);
-            
+
             if (csvContent == null || csvContent.Length == 0)
             {
                 _logger.LogWarning("Empty CSV file received for user {UserId}", userId);
@@ -67,7 +67,7 @@ public class ImportFunctions
                 return badRequest;
             }
 
-            _logger.LogInformation("Uploading CSV file to blob storage for user {UserId}, file size: {Size}", 
+            _logger.LogInformation("Uploading CSV file to blob storage for user {UserId}, file size: {Size}",
                 userId, csvContent.Length);
 
             // Upload CSV file to blob storage
@@ -88,14 +88,14 @@ public class ImportFunctions
 
             // Return accepted response with request ID for tracking
             var response = req.CreateResponse(HttpStatusCode.Accepted);
-            await response.WriteAsJsonAsync(new 
-            { 
+            await response.WriteAsJsonAsync(new
+            {
                 message = "Import request accepted and queued for processing",
                 requestId = requestId,
                 status = "Queued"
             });
 
-            _logger.LogInformation("CSV import request queued for user {UserId}. RequestId: {RequestId}", 
+            _logger.LogInformation("CSV import request queued for user {UserId}. RequestId: {RequestId}",
                 userId, requestId);
 
             return response;
@@ -120,9 +120,9 @@ public class ImportFunctions
     {
         try
         {
-            var contentType = req.Headers.TryGetValues("Content-Type", out var contentTypeValues) ? 
+            var contentType = req.Headers.TryGetValues("Content-Type", out var contentTypeValues) ?
                 contentTypeValues.FirstOrDefault() : null;
-            
+
             if (string.IsNullOrEmpty(contentType) || !contentType.Contains("multipart/form-data"))
             {
                 // Fallback: treat entire body as CSV content for testing
@@ -141,10 +141,10 @@ public class ImportFunctions
 
             using var reader = new StreamReader(req.Body);
             var body = await reader.ReadToEndAsync();
-            
+
             // Parse multipart data
             var parts = ParseMultipartData(body, boundary);
-            
+
             // Find file part
             var filePart = parts.FirstOrDefault(p => !string.IsNullOrEmpty(p.FileName));
             if (filePart == null)
@@ -171,7 +171,7 @@ public class ImportFunctions
     {
         var boundaryIndex = contentType.IndexOf("boundary=");
         if (boundaryIndex == -1) return null;
-        
+
         var boundary = contentType.Substring(boundaryIndex + 9);
         return boundary.Trim('"');
     }
@@ -180,20 +180,20 @@ public class ImportFunctions
     {
         var parts = new List<MultipartSection>();
         var sections = body.Split(new[] { "--" + boundary }, StringSplitOptions.RemoveEmptyEntries);
-        
+
         foreach (var section in sections)
         {
             if (string.IsNullOrWhiteSpace(section) || section.StartsWith("--")) continue;
-            
+
             var headerEndIndex = section.IndexOf("\r\n\r\n");
             if (headerEndIndex == -1) continue;
-            
+
             var headerSection = section.Substring(0, headerEndIndex);
             var contentSection = section.Substring(headerEndIndex + 4).TrimEnd('\r', '\n');
-            
+
             var fileName = ExtractFileName(headerSection);
             var fieldName = ExtractFieldName(headerSection);
-            
+
             parts.Add(new MultipartSection
             {
                 FieldName = fieldName,
@@ -201,7 +201,7 @@ public class ImportFunctions
                 Content = contentSection
             });
         }
-        
+
         return parts;
     }
 

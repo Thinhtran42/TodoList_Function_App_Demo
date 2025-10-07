@@ -1,6 +1,6 @@
 using TodoApp.Application.DTOs;
 
-namespace TodoApp.Application.Interfaces;
+namespace TodoApp.Application.Interfaces.Services;
 
 /// <summary>
 /// Service for importing todos from CSV files

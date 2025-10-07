@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
 
 namespace TodoApp.Infrastructure.Data;
 

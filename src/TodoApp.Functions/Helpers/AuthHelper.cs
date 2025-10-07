@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Security.Claims;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 
 namespace TodoApp.Functions.Helpers;
 

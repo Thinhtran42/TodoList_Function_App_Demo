@@ -2,7 +2,7 @@ using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
 using TodoApp.Domain.Entities;
 
-namespace TodoApp.Application.Interfaces;
+namespace TodoApp.Application.Interfaces.Repositories;
 
 public interface ITodoRepository : IBaseRepository<TodoItem>
 {

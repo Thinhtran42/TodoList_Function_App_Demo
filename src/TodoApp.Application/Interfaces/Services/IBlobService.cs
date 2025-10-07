@@ -1,4 +1,4 @@
-namespace TodoApp.Application.Interfaces;
+namespace TodoApp.Application.Interfaces.Services;
 
 public interface IBlobService
 {

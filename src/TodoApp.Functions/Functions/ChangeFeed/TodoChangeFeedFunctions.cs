@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
+using TodoApp.Domain.Enums;
 using TodoApp.Infrastructure.Data.Models;
 
 namespace TodoApp.Functions.Functions;
@@ -60,8 +61,8 @@ public class TodoChangeFeedFunctions
                             Title = document.title,
                             UserId = document.userId,
                             Timestamp = DateTime.UtcNow,
-                            Priority = (TodoApp.Domain.Entities.Priority)document.priority,
-                            Category = (TodoApp.Domain.Entities.Category)document.category,
+                            Priority = (Priority)document.priority,
+                            Category = (Category)document.category,
                             IsCompleted = document.isCompleted
                         };
 

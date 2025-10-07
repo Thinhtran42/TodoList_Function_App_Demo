@@ -1,7 +1,7 @@
 using Microsoft.Azure.Functions.Worker.Http;
 using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
-using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
 
 namespace TodoApp.Functions.Helpers;
 
@@ -46,7 +46,7 @@ public static class QueryParameterHelper
 
         // Sorting
         parameters.SortBy = query["sortBy"] ?? "CreatedAt";
-        
+
         if (bool.TryParse(query["sortDescending"], out var sortDesc))
             parameters.SortDescending = sortDesc;
 
@@ -59,15 +59,15 @@ public static class QueryParameterHelper
     public static TodoQueryParameters ExtractExportQueryParameters(HttpRequestData req)
     {
         var parameters = ExtractTodoQueryParameters(req);
-        
+
         // Override pagination for export - get all records
         parameters.Page = 1;
         parameters.PageSize = 10000; // Large page size
-        
+
         // Default sorting for export
         parameters.SortBy = "CreatedAt";
         parameters.SortDescending = false;
-        
+
         return parameters;
     }
 }

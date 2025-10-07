@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure.Data;
 

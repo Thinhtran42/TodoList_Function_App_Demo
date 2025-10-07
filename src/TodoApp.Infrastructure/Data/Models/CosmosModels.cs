@@ -1,5 +1,7 @@
 using Microsoft.Azure.Cosmos.Linq;
+using Newtonsoft.Json;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
 
 namespace TodoApp.Infrastructure.Data.Models;
 
@@ -98,8 +100,8 @@ public class CosmosTodoItem
             Title = title,
             Description = description,
             IsCompleted = isCompleted,
-            Priority = (Priority)priority,
-            Category = (Category)category,
+            Priority = (Domain.Enums.Priority)priority,
+            Category = (Domain.Enums.Category)category,
             DueDate = dueDate,
             Tags = tags,
             UserId = userId,

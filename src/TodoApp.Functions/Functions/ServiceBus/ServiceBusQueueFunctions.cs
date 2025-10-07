@@ -2,7 +2,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 
 namespace TodoApp.Functions.Functions;
 
@@ -39,7 +39,7 @@ public class ServiceBusQueueFunctions
                 return;
             }
 
-            _logger.LogInformation("Processing CSV import for RequestId: {RequestId}, UserId: {UserId}, FileName: {FileName}", 
+            _logger.LogInformation("Processing CSV import for RequestId: {RequestId}, UserId: {UserId}, FileName: {FileName}",
                 importMessage.RequestId, importMessage.UserId, importMessage.FileName);
 
             // Download CSV content from blob storage
@@ -56,20 +56,20 @@ public class ServiceBusQueueFunctions
             // Process CSV import using the existing service
             var result = await _csvImportService.ImportTodosAsync(userId, csvContent);
 
-            _logger.LogInformation("CSV import completed for RequestId: {RequestId}. Status: {Status}, Imported: {Imported}, Failed: {Failed}", 
+            _logger.LogInformation("CSV import completed for RequestId: {RequestId}. Status: {Status}, Imported: {Imported}, Failed: {Failed}",
                 importMessage.RequestId, result.Status, result.ImportedRecords, result.FailedRecords);
 
             // Log detailed results for monitoring
             if (result.FailedRecords > 0)
             {
-                _logger.LogWarning("Import had errors for RequestId: {RequestId}. Failed records: {FailedCount}", 
+                _logger.LogWarning("Import had errors for RequestId: {RequestId}. Failed records: {FailedCount}",
                     importMessage.RequestId, result.FailedRecords);
-                
+
                 if (result.Errors != null && result.Errors.Count > 0)
                 {
                     foreach (var error in result.Errors)
                     {
-                        _logger.LogWarning("Import error for RequestId: {RequestId}: {Error}", 
+                        _logger.LogWarning("Import error for RequestId: {RequestId}: {Error}",
                             importMessage.RequestId, error);
                     }
                 }

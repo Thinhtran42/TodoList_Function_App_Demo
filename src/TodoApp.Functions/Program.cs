@@ -8,7 +8,7 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Abstractions;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Configurations;
 using Microsoft.OpenApi.Models;
 using TodoApp.Functions.Middleware;
-using TodoApp.Domain.Entities;
+using TodoApp.Domain.Settings;
 using TodoApp.Infrastructure;
 using TodoApp.Infrastructure.Extensions;
 
@@ -81,23 +81,23 @@ if (databaseProvider == DatabaseProvider.CosmosDB)
 {
     using var scope = app.Services.CreateScope();
     var services = scope.ServiceProvider;
-    
+
     try
     {
         var cosmosClient = services.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>();
         var logger = services.GetRequiredService<ILogger<Program>>();
-        
+
         logger.LogInformation("Initializing Cosmos DB...");
-        
+
         // Initialize database and containers using direct Cosmos SDK
         var databaseName = builder.Configuration["CosmosDB:DatabaseName"] ?? "TodoApp";
         var database = await cosmosClient.CreateDatabaseIfNotExistsAsync(databaseName);
-        
+
         // Create containers with proper partition keys
         await database.Database.CreateContainerIfNotExistsAsync("Users", "/DomainId");
         await database.Database.CreateContainerIfNotExistsAsync("TodoItems", "/userId");
         await database.Database.CreateContainerIfNotExistsAsync("RefreshTokens", "/userId");
-        
+
         logger.LogInformation("✅ Cosmos DB initialized successfully!");
     }
     catch (Exception ex)

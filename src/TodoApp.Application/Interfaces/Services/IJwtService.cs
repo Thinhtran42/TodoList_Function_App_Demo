@@ -1,7 +1,7 @@
 using System.Security.Claims;
 using TodoApp.Domain.Entities;
 
-namespace TodoApp.Application.Interfaces;
+namespace TodoApp.Application.Interfaces.Services;
 
 public interface IJwtService
 {

@@ -2,7 +2,7 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Infrastructure.Data.Models;
 using DomainTodoItem = TodoApp.Domain.Entities.TodoItem;
 

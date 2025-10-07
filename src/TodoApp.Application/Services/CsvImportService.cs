@@ -1,8 +1,9 @@
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces;
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
+using TodoApp.Application.Interfaces.Services;
 
 namespace TodoApp.Application.Services;
 
@@ -23,7 +24,7 @@ public class CsvImportService : ICsvImportService
     {
         var items = new List<ImportTodoItem>();
         var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        
+
         if (lines.Length == 0)
         {
             return Task.FromResult(items);
@@ -47,7 +48,7 @@ public class CsvImportService : ICsvImportService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning("Failed to parse CSV line {LineNumber}: {Line}. Error: {Error}", 
+                _logger.LogWarning("Failed to parse CSV line {LineNumber}: {Line}. Error: {Error}",
                     i + 1, line, ex.Message);
             }
         }
@@ -177,7 +178,7 @@ public class CsvImportService : ICsvImportService
             if (importedCount > 0)
             {
                 response.Status = failedCount == 0 ? "Completed" : "Partial";
-                response.Message = failedCount == 0 
+                response.Message = failedCount == 0
                     ? $"Successfully imported {importedCount} todos"
                     : $"Imported {importedCount} todos, {failedCount} failed";
             }
@@ -187,7 +188,7 @@ public class CsvImportService : ICsvImportService
                 response.Message = "No todos were imported";
             }
 
-            _logger.LogInformation("CSV import completed for user {UserId}. Imported: {Imported}, Failed: {Failed}", 
+            _logger.LogInformation("CSV import completed for user {UserId}. Imported: {Imported}, Failed: {Failed}",
                 userId, importedCount, failedCount);
 
             return response;
@@ -206,7 +207,7 @@ public class CsvImportService : ICsvImportService
     {
         // Check if first line looks like a header
         var lowerLine = line.ToLower();
-        return lowerLine.Contains("title") || lowerLine.Contains("description") || 
+        return lowerLine.Contains("title") || lowerLine.Contains("description") ||
                lowerLine.Contains("priority") || lowerLine.Contains("category");
     }
 
@@ -215,7 +216,7 @@ public class CsvImportService : ICsvImportService
         // Simple CSV parsing (handles basic comma separation)
         // For production, consider using a proper CSV library like CsvHelper
         var fields = SplitCsvLine(line);
-        
+
         if (fields.Length < 1) return null;
 
         var item = new ImportTodoItem();
@@ -228,7 +229,7 @@ public class CsvImportService : ICsvImportService
         if (fields.Length > 3) item.Category = fields[3];
         if (fields.Length > 4) item.DueDate = fields[4];
         if (fields.Length > 5) item.Tags = fields[5];
-        if (fields.Length > 6) 
+        if (fields.Length > 6)
         {
             bool completed;
             bool.TryParse(fields[6], out completed);

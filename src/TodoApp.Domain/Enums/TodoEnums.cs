@@ -1,4 +1,4 @@
-namespace TodoApp.Domain.Entities;
+namespace TodoApp.Domain.Enums;
 
 public enum Priority
 {

@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure.Data;
 
@@ -49,7 +49,7 @@ public abstract class BaseRepository<TEntity> : IBaseRepository<TEntity> where T
         // Update the entity using EF's ChangeTracker
         Context.Entry(existingEntity).CurrentValues.SetValues(entity);
         await Context.SaveChangesAsync();
-        
+
         return existingEntity;
     }
 

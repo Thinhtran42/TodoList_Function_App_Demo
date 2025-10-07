@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 
 namespace TodoApp.Infrastructure.Services;
 
@@ -42,14 +42,14 @@ public class ServiceBusService : IServiceBusService
             // Send message to queue
             await _queueSender.SendMessageAsync(serviceBusMessage);
 
-            _logger.LogInformation("Import message sent to ServiceBus queue. RequestId: {RequestId}, UserId: {UserId}", 
+            _logger.LogInformation("Import message sent to ServiceBus queue. RequestId: {RequestId}, UserId: {UserId}",
                 message.RequestId, message.UserId);
 
             return message.RequestId;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send import message to ServiceBus. RequestId: {RequestId}, UserId: {UserId}", 
+            _logger.LogError(ex, "Failed to send import message to ServiceBus. RequestId: {RequestId}, UserId: {UserId}",
                 message.RequestId, message.UserId);
             throw;
         }
@@ -61,7 +61,7 @@ public class ServiceBusService : IServiceBusService
         {
             await _queueSender.DisposeAsync();
         }
-        
+
         if (_serviceBusClient != null)
         {
             await _serviceBusClient.DisposeAsync();

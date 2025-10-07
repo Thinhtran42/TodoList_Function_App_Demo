@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Application.Mappers;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
@@ -113,7 +114,7 @@ public class TodoService : ITodoService
     public async Task<PagedResult<TodoDto>> GetTodosAsync(long userId, TodoQueryParameters parameters)
     {
         var pagedResult = await _todoRepository.GetTodosAsync(userId, parameters);
-        
+
         return new PagedResult<TodoDto>
         {
             Items = pagedResult.Items.Select(TodoMapper.ToDto),

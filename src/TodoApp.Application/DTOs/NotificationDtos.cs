@@ -1,4 +1,5 @@
 using TodoApp.Domain.Entities;
+using TodoApp.Domain.Enums;
 
 namespace TodoApp.Application.DTOs;
 

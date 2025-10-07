@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Linq.Dynamic.Core;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Domain.Entities;
 using TodoApp.Infrastructure.Data;
 using TodoApp.Infrastructure.Extensions;
@@ -119,7 +119,7 @@ public class TodoRepository : BaseRepository<TodoItem>, ITodoRepository
         if (!string.IsNullOrEmpty(parameters.SearchTerm))
         {
             var searchTerm = parameters.SearchTerm.ToLower();
-            query = query.Where(x => 
+            query = query.Where(x =>
                 x.Title.ToLower().Contains(searchTerm) ||
                 (x.Description != null && x.Description.ToLower().Contains(searchTerm)));
         }

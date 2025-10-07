@@ -2,7 +2,7 @@ using Azure.Storage.Blobs;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Services;
 
 namespace TodoApp.Infrastructure.Services;
 
@@ -59,7 +59,7 @@ public class BlobService : IBlobService
             // Get blob client using the authenticated service client
             var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
             var blobClient = containerClient.GetBlobClient(blobName);
-            
+
             // Download blob content
             var response = await blobClient.DownloadContentAsync();
             var content = response.Value.Content.ToString();

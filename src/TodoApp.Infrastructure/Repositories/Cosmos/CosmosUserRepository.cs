@@ -1,6 +1,6 @@
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
-using TodoApp.Application.Interfaces;
+using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Infrastructure.Data.Models;
 using DomainUser = TodoApp.Domain.Entities.User;
 using DomainRefreshToken = TodoApp.Domain.Entities.RefreshToken;
