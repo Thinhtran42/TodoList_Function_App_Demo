@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Authentication;
 using TodoApp.Domain.Exceptions;
 
 namespace TodoApp.API.Controllers;

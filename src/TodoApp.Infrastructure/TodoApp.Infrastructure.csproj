@@ -12,7 +12,16 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<!-- Message Queue - RabbitMQ instead of Azure Service Bus -->
+		<PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+		
+		<!-- Storage - MinIO instead of Azure Blob Storage -->
+		<PackageReference Include="Minio" Version="6.0.3" />
+		
+		<!-- Keep Azure packages for backward compatibility (optional) -->
 		<PackageReference Include="Azure.Messaging.ServiceBus" Version="7.20.1" />
+		<PackageReference Include="Azure.Storage.Blobs" Version="12.19.1" />
+		
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.9" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Cosmos" Version="9.0.9" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
@@ -29,7 +38,6 @@
 		<PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
 		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
 		<PackageReference Include="System.Linq.Dynamic.Core" Version="1.6.8" />
-		<PackageReference Include="Azure.Storage.Blobs" Version="12.19.1" />
 		<PackageReference Include="CsvHelper" Version="33.0.1" />
 	</ItemGroup>
 

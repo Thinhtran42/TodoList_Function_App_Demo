@@ -7,8 +7,8 @@ using Microsoft.OpenApi.Models;
 using System.Net;
 using TodoApp.Functions.Helpers;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
 using TodoApp.Domain.Exceptions;
+using TodoApp.Application.Interfaces.Services.Authentication;
 
 namespace TodoApp.Functions.Functions;
 

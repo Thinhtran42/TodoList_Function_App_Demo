@@ -2,8 +2,13 @@ using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Authentication;
+using TodoApp.Application.Interfaces.Services.Business;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
+using TodoApp.Application.Interfaces.Services.MessageBroker;
+using TodoApp.Application.Interfaces.Services.Storage;
 using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Application.Services;
 using TodoApp.Application.Validators;
@@ -12,7 +17,9 @@ using TodoApp.Domain.Settings;
 using TodoApp.Infrastructure.Data;
 using TodoApp.Infrastructure.Repositories;
 using TodoApp.Infrastructure.Repositories.Cosmos;
-using TodoApp.Infrastructure.Services;
+using TodoApp.Infrastructure.Services.Persistence;
+using TodoApp.Infrastructure.Services.Storage;
+using TodoApp.Infrastructure.Services.MessageBroker;
 
 namespace TodoApp.Infrastructure;
 
@@ -176,10 +183,9 @@ public static class DependencyInjection
         services.AddScoped<IJwtService, JwtService>();
         services.AddScoped<ICsvImportService, TodoApp.Application.Services.CsvImportService>();
         services.AddScoped<ICsvExportService, CsvExportService>();
-        services.AddScoped<IBlobService, BlobService>();
 
-        // Add ServiceBus Service
-        services.AddScoped<IServiceBusService, ServiceBusService>();
+        // Storage and Message Queue services will be added based on provider configuration
+        // See AddStorageServices and AddMessageQueueServices methods
 
         // Add Todo Validators
         services.AddScoped<IValidator<CreateTodoRequest>, CreateTodoRequestValidator>();
@@ -191,6 +197,70 @@ public static class DependencyInjection
         services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
         services.AddScoped<IValidator<ChangePasswordRequest>, ChangePasswordRequestValidator>();
         services.AddScoped<IValidator<UpdateProfileRequest>, UpdateProfileRequestValidator>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddStorageServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        StorageProvider storageProvider = StorageProvider.AzureBlob)
+    {
+        switch (storageProvider)
+        {
+            case StorageProvider.MinIO:
+                // Configure MinIO settings from appsettings
+                services.AddOptions<MinioSettings>()
+                    .Configure(options =>
+                    {
+                        options.Endpoint = configuration["MinioSettings:Endpoint"] ?? "localhost:9000";
+                        options.AccessKey = configuration["MinioSettings:AccessKey"] ?? "minioadmin";
+                        options.SecretKey = configuration["MinioSettings:SecretKey"] ?? "minioadmin";
+                        options.BucketName = configuration["MinioSettings:BucketName"] ?? "todo-imports";
+                        options.UseSSL = bool.Parse(configuration["MinioSettings:UseSSL"] ?? "false");
+                    });
+                services.AddScoped<IFileStorageService, MinioStorageService>();
+                break;
+
+            case StorageProvider.AzureBlob:
+            default:
+                // Use Azure Blob Storage (existing implementation)
+                services.AddScoped<IFileStorageService, AzureBlobStorageService>();
+                break;
+        }
+
+        return services;
+    }
+
+    public static IServiceCollection AddMessageQueueServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        MessageQueueProvider messageQueueProvider = MessageQueueProvider.AzureServiceBus)
+    {
+        switch (messageQueueProvider)
+        {
+            case MessageQueueProvider.RabbitMQ:
+                // Configure RabbitMQ settings from appsettings
+                services.AddOptions<RabbitMQSettings>()
+                    .Configure(options =>
+                    {
+                        options.Host = configuration["RabbitMQSettings:Host"] ?? "localhost";
+                        options.Port = int.Parse(configuration["RabbitMQSettings:Port"] ?? "5672");
+                        options.Username = configuration["RabbitMQSettings:Username"] ?? "guest";
+                        options.Password = configuration["RabbitMQSettings:Password"] ?? "guest";
+                        options.QueueName = configuration["RabbitMQSettings:QueueName"] ?? "import-csv-queue";
+                        options.ExchangeName = configuration["RabbitMQSettings:ExchangeName"] ?? "todo-exchange";
+                        options.RoutingKey = configuration["RabbitMQSettings:RoutingKey"] ?? "todo.import";
+                    });
+                services.AddScoped<IServiceBusService, RabbitMQService>();
+                break;
+
+            case MessageQueueProvider.AzureServiceBus:
+            default:
+                // Use Azure Service Bus (existing implementation)
+                services.AddScoped<IServiceBusService, ServiceBusService>();
+                break;
+        }
 
         return services;
     }

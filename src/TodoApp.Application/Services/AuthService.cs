@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Authentication;
 using TodoApp.Application.Interfaces.Repositories;
 using TodoApp.Application.Mappers;
 using TodoApp.Domain.Entities;

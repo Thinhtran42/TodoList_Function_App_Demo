@@ -29,8 +29,24 @@ var databaseProvider = builder.Configuration["DatabaseProvider"]?.ToLower() swit
     _ => DatabaseProvider.PostgreSQL
 };
 
+// Determine which storage provider to use
+var storageProvider = builder.Configuration["StorageProvider"]?.ToLower() switch
+{
+    "minio" => StorageProvider.MinIO,
+    _ => StorageProvider.AzureBlob
+};
+
+// Determine which message queue provider to use
+var messageQueueProvider = builder.Configuration["MessageQueueProvider"]?.ToLower() switch
+{
+    "rabbitmq" => MessageQueueProvider.RabbitMQ,
+    _ => MessageQueueProvider.AzureServiceBus
+};
+
 // Add Infrastructure services
 builder.Services.AddInfrastructureWithProvider(builder.Configuration, databaseProvider);
+builder.Services.AddStorageServices(builder.Configuration, storageProvider);
+builder.Services.AddMessageQueueServices(builder.Configuration, messageQueueProvider);
 builder.Services.AddJwtSettings(jwtSettings);
 
 // Add Controllers

@@ -1,6 +1,6 @@
 using TodoApp.Application.DTOs;
 
-namespace TodoApp.Application.Interfaces.Services;
+namespace TodoApp.Application.Interfaces.Services.MessageBroker;
 
 public interface IServiceBusService
 {

@@ -40,6 +40,11 @@ var databaseProvider = builder.Configuration["DatabaseProvider"]?.ToLower() swit
 
 // Add Infrastructure services based on provider
 builder.Services.AddInfrastructureWithProvider(builder.Configuration, databaseProvider);
+
+// Azure Functions ALWAYS use Azure services (not local MinIO/RabbitMQ)
+builder.Services.AddStorageServices(builder.Configuration, StorageProvider.AzureBlob);
+builder.Services.AddMessageQueueServices(builder.Configuration, MessageQueueProvider.AzureServiceBus);
+
 builder.Services.AddJwtSettings(jwtSettings);
 
 // Configure OpenAPI với JWT Authentication

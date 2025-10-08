@@ -6,10 +6,10 @@ using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
 using TodoApp.Infrastructure.Data.Models;
 
-namespace TodoApp.Infrastructure.Services;
+namespace TodoApp.Infrastructure.Services.Persistence;
 
 public class CsvExportService : ICsvExportService
 {

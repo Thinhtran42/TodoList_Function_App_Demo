@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using TodoApp.API.Helpers;
 using TodoApp.Application.Common;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Business;
 using TodoApp.Domain.Exceptions;
 
 namespace TodoApp.API.Controllers;

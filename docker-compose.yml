@@ -7,9 +7,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${PGUSER}
-      POSTGRES_PASSWORD: ${PGPASSWORD}
-      POSTGRES_DB: ${PGDATABASE}
+      POSTGRES_USER: ${PGUSER:-postgres}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
+      POSTGRES_DB: ${PGDATABASE:-tododb}
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +17,57 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - todo-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: todo-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000" # API port
+      - "9001:9001" # Console port
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - todo-network
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: todo-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672" # AMQP port
+      - "15672:15672" # Management UI port
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_log:/var/log/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - todo-network
 
 volumes:
   pg_data:
+  minio_data:
+  rabbitmq_data:
+  rabbitmq_log:
+
+networks:
+  todo-network:
+    driver: bridge

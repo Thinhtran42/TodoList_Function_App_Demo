@@ -2,7 +2,8 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
+using TodoApp.Application.Interfaces.Services.Storage;
 
 namespace TodoApp.Functions.Functions;
 
@@ -10,12 +11,12 @@ public class ServiceBusQueueFunctions
 {
     private readonly ILogger<ServiceBusQueueFunctions> _logger;
     private readonly ICsvImportService _csvImportService;
-    private readonly IBlobService _blobService;
+    private readonly IFileStorageService _blobService;
 
     public ServiceBusQueueFunctions(
         ILogger<ServiceBusQueueFunctions> logger,
         ICsvImportService csvImportService,
-        IBlobService blobService)
+        IFileStorageService blobService)
     {
         _logger = logger;
         _csvImportService = csvImportService;
@@ -44,7 +45,7 @@ public class ServiceBusQueueFunctions
 
             // Download CSV content from blob storage
             _logger.LogInformation("Downloading CSV from blob storage: {BlobUrl}", importMessage.BlobUrl);
-            var csvContent = await _blobService.DownloadCsvAsync(importMessage.BlobUrl);
+            var csvContent = await _blobService.DownloadFileAsync(importMessage.BlobUrl);
 
             // Convert string userId to long
             if (!long.TryParse(importMessage.UserId, out var userId))

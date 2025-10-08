@@ -3,9 +3,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.MessageBroker;
 
-namespace TodoApp.Infrastructure.Services;
+namespace TodoApp.Infrastructure.Services.MessageBroker;
 
 public class ServiceBusService : IServiceBusService
 {

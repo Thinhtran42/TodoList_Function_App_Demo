@@ -6,16 +6,14 @@ using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Enums;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using System.Net;
-using System.Web;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using TodoApp.Functions.Helpers;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
-using TodoApp.Application.Interfaces.Services;
-using TodoApp.Domain.Entities;
 using TodoApp.Domain.Enums;
 using TodoApp.Domain.Exceptions;
+using TodoApp.Application.Interfaces.Services.Business;
+using TodoApp.Application.Interfaces.Services.Authentication;
 
 namespace TodoApp.Functions.Functions;
 

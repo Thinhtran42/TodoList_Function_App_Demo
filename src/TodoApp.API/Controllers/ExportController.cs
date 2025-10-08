@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TodoApp.API.Helpers;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Business;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
 
 namespace TodoApp.API.Controllers;
 

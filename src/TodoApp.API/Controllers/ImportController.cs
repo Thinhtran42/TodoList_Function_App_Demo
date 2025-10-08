@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TodoApp.API.Helpers;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
+using TodoApp.Application.Interfaces.Services.MessageBroker;
+using TodoApp.Application.Interfaces.Services.Storage;
 
 namespace TodoApp.API.Controllers;
 
@@ -14,13 +16,13 @@ public class ImportController : ControllerBase
     private readonly ILogger<ImportController> _logger;
     private readonly ICsvImportService _csvImportService;
     private readonly IServiceBusService _serviceBusService;
-    private readonly IBlobService _blobService;
+    private readonly IFileStorageService _blobService;
 
     public ImportController(
         ILogger<ImportController> logger,
         ICsvImportService csvImportService,
         IServiceBusService serviceBusService,
-        IBlobService blobService)
+        IFileStorageService blobService)
     {
         _logger = logger;
         _csvImportService = csvImportService;
@@ -67,8 +69,8 @@ public class ImportController : ControllerBase
             _logger.LogInformation("Uploading CSV file to blob storage for user {UserId}, file size: {Size}",
                 userId, csvContent.Length);
 
-            // Upload CSV file to blob storage
-            var blobUrl = await _blobService.UploadCsvAsync(csvContent, file.FileName);
+            // Upload CSV file to storage (Azure Blob or MinIO depending on configuration)
+            var blobUrl = await _blobService.UploadFileAsync(csvContent, file.FileName);
 
             // Create import message
             var importMessage = new ImportMessage

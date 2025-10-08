@@ -2,7 +2,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Middleware;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Authentication;
 
 namespace TodoApp.Functions.Middleware;
 

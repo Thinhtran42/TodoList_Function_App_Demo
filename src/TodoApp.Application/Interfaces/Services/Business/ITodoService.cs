@@ -1,7 +1,7 @@
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Common;
 
-namespace TodoApp.Application.Interfaces.Services;
+namespace TodoApp.Application.Interfaces.Services.Business;
 
 public interface ITodoService
 {

@@ -3,7 +3,8 @@ using System.Globalization;
 using TodoApp.Application.DTOs;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Enums;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Business;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
 
 namespace TodoApp.Application.Services;
 

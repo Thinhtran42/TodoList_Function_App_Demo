@@ -7,8 +7,11 @@ using Microsoft.OpenApi.Models;
 using Microsoft.AspNetCore.Http;
 using System.Net;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
 using TodoApp.Functions.Helpers;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
+using TodoApp.Application.Interfaces.Services.MessageBroker;
+using TodoApp.Application.Interfaces.Services.Storage;
+using TodoApp.Application.Interfaces.Services.Authentication;
 
 namespace TodoApp.Functions.Functions;
 
@@ -17,14 +20,14 @@ public class ImportFunctions
     private readonly ILogger<ImportFunctions> _logger;
     private readonly ICsvImportService _csvImportService;
     private readonly IServiceBusService _serviceBusService;
-    private readonly IBlobService _blobService;
+    private readonly IFileStorageService _blobService;
     private readonly IJwtService _jwtService;
 
     public ImportFunctions(
         ILogger<ImportFunctions> logger,
         ICsvImportService csvImportService,
         IServiceBusService serviceBusService,
-        IBlobService blobService,
+        IFileStorageService blobService,
         IJwtService jwtService)
     {
         _logger = logger;
@@ -71,7 +74,7 @@ public class ImportFunctions
                 userId, csvContent.Length);
 
             // Upload CSV file to blob storage
-            var blobUrl = await _blobService.UploadCsvAsync(csvContent, fileName);
+            var blobUrl = await _blobService.UploadFileAsync(csvContent, fileName);
 
             // Create import message
             var importMessage = new ImportMessage

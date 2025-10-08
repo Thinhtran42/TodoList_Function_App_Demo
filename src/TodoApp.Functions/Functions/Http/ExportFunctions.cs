@@ -6,7 +6,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using System.Net;
 using TodoApp.Application.DTOs;
-using TodoApp.Application.Interfaces.Services;
+using TodoApp.Application.Interfaces.Services.Authentication;
+using TodoApp.Application.Interfaces.Services.Business;
+using TodoApp.Application.Interfaces.Services.DataProcessing;
 using TodoApp.Functions.Helpers;
 
 namespace TodoApp.Functions.Functions;
