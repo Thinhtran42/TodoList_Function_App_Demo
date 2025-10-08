@@ -91,9 +91,9 @@ public class ExportFunctions
             var fileName = $"todos_export_{userId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
             _logger.LogDebug("Generated filename: {FileName}", fileName);
 
-            // Upload to blob storage and get SAS URL with metadata
-            _logger.LogDebug("Uploading CSV to blob storage");
-            var uploadResult = await _csvExportService.UploadCsvToBlobAsync(csvData, fileName);
+            // Upload to storage (Azure Blob, MinIO, etc.) and get download URL with metadata
+            _logger.LogDebug("Uploading CSV to storage");
+            var uploadResult = await _csvExportService.UploadCsvToStorageAsync(csvData, fileName);
 
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
             var validForMinutes = (int)(uploadResult.ExpiresAt - DateTime.UtcNow).TotalMinutes;

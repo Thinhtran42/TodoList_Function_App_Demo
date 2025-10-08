@@ -1,26 +1,23 @@
-using Azure.Storage.Blobs;
-using Azure.Storage.Sas;
 using CsvHelper;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.Text;
 using TodoApp.Application.DTOs;
 using TodoApp.Application.Interfaces.Services.DataProcessing;
+using TodoApp.Application.Interfaces.Services.Storage;
 using TodoApp.Infrastructure.Data.Models;
 
 namespace TodoApp.Infrastructure.Services.Persistence;
 
 public class CsvExportService : ICsvExportService
 {
-    private readonly BlobServiceClient _blobServiceClient;
+    private readonly IFileStorageService _storageService;
     private readonly ILogger<CsvExportService> _logger;
     private const string ContainerName = "todo-exports";
 
-    public CsvExportService(IConfiguration configuration, ILogger<CsvExportService> logger)
+    public CsvExportService(IFileStorageService storageService, ILogger<CsvExportService> logger)
     {
-        var connectionString = configuration.GetConnectionString("AzureStorage");
-        _blobServiceClient = new BlobServiceClient(connectionString);
+        _storageService = storageService;
         _logger = logger;
     }
 
@@ -68,131 +65,40 @@ public class CsvExportService : ICsvExportService
         }
     }
 
-    public async Task<BlobUploadResult> UploadCsvToBlobAsync(byte[] csvData, string fileName)
+    public async Task<FileUploadResult> UploadCsvToStorageAsync(byte[] csvData, string fileName)
     {
         try
         {
-            _logger.LogInformation("Starting CSV upload to blob storage. File: {FileName}, Size: {Size} bytes",
+            _logger.LogInformation("Starting CSV upload to storage. File: {FileName}, Size: {Size} bytes",
                 fileName, csvData.Length);
 
-            // Ensure container exists
-            var containerClient = _blobServiceClient.GetBlobContainerClient(ContainerName);
-            var containerCreated = await containerClient.CreateIfNotExistsAsync();
+            // Use IFileStorageService to upload the file (works with Azure Blob, MinIO, etc.)
+            var fileUrl = await _storageService.UploadFileAsync(csvData, fileName, ContainerName);
 
-            if (containerCreated != null)
+            _logger.LogInformation("CSV file uploaded successfully: {FileName}, URL: {FileUrl}", fileName, fileUrl);
+
+            // Return result with file information
+            return new FileUploadResult
             {
-                _logger.LogInformation("Created new blob container: {ContainerName}", ContainerName);
-            }
-
-            // Clean up old files (optional - files older than 7 days)
-            _logger.LogDebug("Starting cleanup of old CSV files");
-            await CleanupOldFilesAsync(containerClient);
-
-            // Upload blob
-            var blobClient = containerClient.GetBlobClient(fileName);
-            using var stream = new MemoryStream(csvData);
-
-            _logger.LogDebug("Uploading CSV file to blob storage: {BlobName}", fileName);
-            await blobClient.UploadAsync(stream, overwrite: true);
-            _logger.LogInformation("CSV file uploaded successfully: {BlobName}", fileName);
-
-            // Generate SAS URL (valid for 1 hour)
-            var expiresOn = DateTimeOffset.UtcNow.AddHours(1);
-
-            if (blobClient.CanGenerateSasUri)
-            {
-                var sasBuilder = new BlobSasBuilder
-                {
-                    BlobContainerName = ContainerName,
-                    BlobName = fileName,
-                    ExpiresOn = expiresOn,
-                    Resource = "b"
-                };
-
-                sasBuilder.SetPermissions(BlobSasPermissions.Read);
-
-                var sasUri = blobClient.GenerateSasUri(sasBuilder);
-                _logger.LogInformation("Generated SAS URI for blob: {BlobName}, Expires: {ExpiresOn}",
-                    fileName, sasBuilder.ExpiresOn);
-
-                return new BlobUploadResult
-                {
-                    DownloadUrl = sasUri.ToString(),
-                    FileName = fileName,
-                    ExpiresAt = expiresOn.UtcDateTime,
-                    Permissions = "Read",
-                    ContainerName = ContainerName,
-                    FileSizeBytes = csvData.Length
-                };
-            }
-            else
-            {
-                _logger.LogWarning("Cannot generate SAS URI for blob: {BlobName}. Returning public URI", fileName);
-                return new BlobUploadResult
-                {
-                    DownloadUrl = blobClient.Uri.ToString(),
-                    FileName = fileName,
-                    ExpiresAt = DateTime.MaxValue, // Public URL doesn't expire
-                    Permissions = "Public Read",
-                    ContainerName = ContainerName,
-                    FileSizeBytes = csvData.Length
-                };
-            }
+                DownloadUrl = fileUrl,
+                FileName = fileName,
+                ExpiresAt = DateTime.UtcNow.AddHours(1), // Approximate expiry for SAS URLs
+                Permissions = "Read",
+                ContainerName = ContainerName,
+                FileSizeBytes = csvData.Length
+            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error uploading CSV to blob storage. File: {FileName}", fileName);
+            _logger.LogError(ex, "Error uploading CSV to storage. File: {FileName}", fileName);
             throw;
-        }
-    }
-
-    /// <summary>
-    /// Clean up old CSV files (older than 7 days) to prevent storage cost accumulation
-    /// </summary>
-    private async Task CleanupOldFilesAsync(BlobContainerClient containerClient)
-    {
-        try
-        {
-            var cutoffDate = DateTimeOffset.UtcNow.AddDays(-7);
-            _logger.LogDebug("Cleaning up CSV files older than {CutoffDate}", cutoffDate);
-
-            var deletedCount = 0;
-            await foreach (var blobItem in containerClient.GetBlobsAsync(prefix: "csv-exports/"))
-            {
-                if (blobItem.Properties.LastModified < cutoffDate)
-                {
-                    var blobClient = containerClient.GetBlobClient(blobItem.Name);
-                    var deleted = await blobClient.DeleteIfExistsAsync();
-
-                    if (deleted)
-                    {
-                        deletedCount++;
-                        _logger.LogInformation("Deleted old CSV file: {FileName}, LastModified: {LastModified}",
-                            blobItem.Name, blobItem.Properties.LastModified);
-                    }
-                }
-            }
-
-            if (deletedCount > 0)
-            {
-                _logger.LogInformation("Cleanup completed. Deleted {Count} old CSV files", deletedCount);
-            }
-            else
-            {
-                _logger.LogDebug("No old CSV files to cleanup");
-            }
-        }
-        catch (Exception ex)
-        {
-            // Log error but don't fail the upload process
-            _logger.LogWarning(ex, "Failed to cleanup old CSV files");
         }
     }
 }
 
 public class TodoCsvRecord
 {
-    public string Id { get; set; }
+    public string Id { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public bool IsCompleted { get; set; }

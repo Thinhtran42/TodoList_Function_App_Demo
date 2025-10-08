@@ -83,9 +83,9 @@ public class ExportController : ControllerBase
             var fileName = $"todos_export_{userId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
             _logger.LogDebug("Generated filename: {FileName}", fileName);
 
-            // Upload to blob storage and get SAS URL with metadata
-            _logger.LogDebug("Uploading CSV to blob storage");
-            var uploadResult = await _csvExportService.UploadCsvToBlobAsync(csvData, fileName);
+            // Upload to storage (Azure Blob, MinIO, etc.) and get download URL with metadata
+            _logger.LogDebug("Uploading CSV to storage");
+            var uploadResult = await _csvExportService.UploadCsvToStorageAsync(csvData, fileName);
 
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
             var validForMinutes = (int)(uploadResult.ExpiresAt - DateTime.UtcNow).TotalMinutes;
@@ -103,7 +103,7 @@ public class ExportController : ControllerBase
                 ExpiresAt = uploadResult.ExpiresAt,
                 AccessPermissions = uploadResult.Permissions,
                 ValidForMinutes = validForMinutes,
-                StorageInfo = $"Stored in Azure Blob Storage ({uploadResult.ContainerName}), Size: {uploadResult.FileSizeBytes} bytes"
+                StorageInfo = $"Stored in file storage ({uploadResult.ContainerName}), Size: {uploadResult.FileSizeBytes} bytes"
             });
         }
         catch (Exception ex)
@@ -111,57 +111,6 @@ public class ExportController : ControllerBase
             var duration = (DateTime.UtcNow - startTime).TotalSeconds;
             _logger.LogError(ex, "=== Export Failed - Error === Duration: {Duration}s", duration.ToString("F2"));
             return StatusCode(500, new { error = "Export failed. Please try again later." });
-        }
-    }
-
-    /// <summary>
-    /// Export user's todos to CSV file (Direct download)
-    /// </summary>
-    /// <remarks>
-    /// Exports todos to CSV and returns the file directly for download.
-    /// No Azure Blob Storage required.
-    /// </remarks>
-    [HttpGet("download")]
-    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> DownloadTodos()
-    {
-        try
-        {
-            _logger.LogInformation("=== Direct CSV Download Request Started ===");
-
-            // Use AuthHelper to get user ID
-            var userId = AuthHelper.GetUserIdOrThrow(HttpContext);
-
-            // Use QueryParameterHelper to extract query parameters
-            var queryParams = QueryParameterHelper.ExtractExportQueryParameters(Request);
-
-            // Get todos
-            var todos = await _todoService.GetTodosAsync(userId, queryParams);
-            _logger.LogInformation("Retrieved {Count} todos for direct download", todos.Items.Count());
-
-            if (!todos.Items.Any())
-            {
-                return NotFound(new { error = "No todos found to export" });
-            }
-
-            // Export to CSV
-            var csvData = await _csvExportService.ExportTodosToCsvAsync(todos.Items);
-
-            // Generate filename
-            var fileName = $"todos_export_{userId}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
-
-            _logger.LogInformation("=== Direct CSV Download Completed === UserId: {UserId}, Count: {Count}",
-                userId, todos.Items.Count());
-
-            // Return file directly
-            return File(csvData, "text/csv", fileName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "=== Direct Download Failed - Error ===");
-            return StatusCode(500, new { error = "Download failed. Please try again later." });
         }
     }
 }

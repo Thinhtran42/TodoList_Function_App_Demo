@@ -16,7 +16,10 @@ public class ExportResponse
     public string StorageInfo { get; set; } = string.Empty;
 }
 
-public class BlobUploadResult
+/// <summary>
+/// Result of file upload operation to storage (Azure Blob, MinIO, etc.)
+/// </summary>
+public class FileUploadResult
 {
     public string DownloadUrl { get; set; } = string.Empty;
     public string FileName { get; set; } = string.Empty;

@@ -15,19 +15,19 @@ public class ImportController : ControllerBase
 {
     private readonly ILogger<ImportController> _logger;
     private readonly ICsvImportService _csvImportService;
-    private readonly IServiceBusService _serviceBusService;
-    private readonly IFileStorageService _blobService;
+    private readonly IMessageQueueService _messageQueueService;
+    private readonly IFileStorageService _storageService;
 
     public ImportController(
         ILogger<ImportController> logger,
         ICsvImportService csvImportService,
-        IServiceBusService serviceBusService,
-        IFileStorageService blobService)
+        IMessageQueueService messageQueueService,
+        IFileStorageService storageService)
     {
         _logger = logger;
         _csvImportService = csvImportService;
-        _serviceBusService = serviceBusService;
-        _blobService = blobService;
+        _messageQueueService = messageQueueService;
+        _storageService = storageService;
     }
 
     /// <summary>
@@ -66,24 +66,24 @@ public class ImportController : ControllerBase
                 csvContent = memoryStream.ToArray();
             }
 
-            _logger.LogInformation("Uploading CSV file to blob storage for user {UserId}, file size: {Size}",
+            _logger.LogInformation("Uploading CSV file to storage for user {UserId}, file size: {Size}",
                 userId, csvContent.Length);
 
             // Upload CSV file to storage (Azure Blob or MinIO depending on configuration)
-            var blobUrl = await _blobService.UploadFileAsync(csvContent, file.FileName);
+            var fileUrl = await _storageService.UploadFileAsync(csvContent, file.FileName);
 
             // Create import message
             var importMessage = new ImportMessage
             {
                 UserId = userId.ToString(),
-                BlobUrl = blobUrl,
+                FileUrl = fileUrl,
                 FileName = file.FileName,
                 RequestId = Guid.NewGuid().ToString(),
                 RequestedAt = DateTime.UtcNow
             };
 
-            // Send message to ServiceBus queue for async processing
-            var requestId = await _serviceBusService.SendImportMessageAsync(importMessage);
+            // Send message to message queue for async processing
+            var requestId = await _messageQueueService.SendImportMessageAsync(importMessage);
 
             _logger.LogInformation("CSV import request queued for user {UserId}. RequestId: {RequestId}",
                 userId, requestId);
@@ -101,69 +101,5 @@ public class ImportController : ControllerBase
             _logger.LogError(ex, "Error during CSV import");
             return StatusCode(500, new { error = "Import failed. Please try again later." });
         }
-    }
-
-    /// <summary>
-    /// Import todos from CSV file (Synchronous processing)
-    /// </summary>
-    /// <remarks>
-    /// Upload a CSV file to import multiple todo items synchronously.
-    /// Returns immediate results. Use for small files only.
-    /// </remarks>
-    [HttpPost("sync")]
-    [Consumes("multipart/form-data")]
-    [DisableRequestSizeLimit]
-    [ProducesResponseType(typeof(ImportResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> ImportTodosSync(IFormFile file)
-    {
-        try
-        {
-            _logger.LogInformation("Starting synchronous CSV import");
-
-            // Use AuthHelper to get user ID
-            var userId = AuthHelper.GetUserIdOrThrow(HttpContext);
-
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest(new { error = "CSV file is required" });
-            }
-
-            // Read CSV content
-            using var reader = new StreamReader(file.OpenReadStream());
-            var csvContent = await reader.ReadToEndAsync();
-
-            _logger.LogInformation("Processing CSV import synchronously for user {UserId}", userId);
-
-            // Process CSV import
-            var result = await _csvImportService.ImportTodosAsync(userId, csvContent);
-
-            _logger.LogInformation("CSV import completed for user {UserId}. Status: {Status}, Imported: {Imported}, Failed: {Failed}",
-                userId, result.Status, result.ImportedRecords, result.FailedRecords);
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error during synchronous CSV import");
-            return StatusCode(500, new { error = "Import failed. Please try again later." });
-        }
-    }
-
-    /// <summary>
-    /// Get import template CSV file
-    /// </summary>
-    [HttpGet("template")]
-    [AllowAnonymous]
-    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
-    public IActionResult GetTemplate()
-    {
-        var csvTemplate = "Title,Description,DueDate,Priority,IsCompleted,Category,Tags\n" +
-                         "Sample Todo,Sample description,2025-12-31,Medium,false,Work,work;important\n" +
-                         "Another Task,Another description,2025-11-15,High,false,Personal,personal;urgent";
-
-        var bytes = System.Text.Encoding.UTF8.GetBytes(csvTemplate);
-        return File(bytes, "text/csv", "todo_import_template.csv");
     }
 }

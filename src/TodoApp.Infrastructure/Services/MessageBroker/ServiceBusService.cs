@@ -7,7 +7,10 @@ using TodoApp.Application.Interfaces.Services.MessageBroker;
 
 namespace TodoApp.Infrastructure.Services.MessageBroker;
 
-public class ServiceBusService : IServiceBusService
+/// <summary>
+/// Azure Service Bus implementation of IMessageQueueService
+/// </summary>
+public class ServiceBusService : IMessageQueueService
 {
     private readonly ServiceBusClient _serviceBusClient;
     private readonly ServiceBusSender _queueSender;

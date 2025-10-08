@@ -9,7 +9,10 @@ using TodoApp.Domain.Settings;
 
 namespace TodoApp.Infrastructure.Services.MessageBroker;
 
-public class RabbitMQService : IServiceBusService, IDisposable
+/// <summary>
+/// RabbitMQ implementation of IMessageQueueService
+/// </summary>
+public class RabbitMQService : IMessageQueueService, IDisposable
 {
     private readonly RabbitMQSettings _settings;
     private readonly ILogger<RabbitMQService> _logger;

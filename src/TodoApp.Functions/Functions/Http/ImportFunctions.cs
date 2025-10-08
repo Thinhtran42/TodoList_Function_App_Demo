@@ -19,21 +19,21 @@ public class ImportFunctions
 {
     private readonly ILogger<ImportFunctions> _logger;
     private readonly ICsvImportService _csvImportService;
-    private readonly IServiceBusService _serviceBusService;
-    private readonly IFileStorageService _blobService;
+    private readonly IMessageQueueService _messageQueueService;
+    private readonly IFileStorageService _storageService;
     private readonly IJwtService _jwtService;
 
     public ImportFunctions(
         ILogger<ImportFunctions> logger,
         ICsvImportService csvImportService,
-        IServiceBusService serviceBusService,
-        IFileStorageService blobService,
+        IMessageQueueService messageQueueService,
+        IFileStorageService storageService,
         IJwtService jwtService)
     {
         _logger = logger;
         _csvImportService = csvImportService;
-        _serviceBusService = serviceBusService;
-        _blobService = blobService;
+        _messageQueueService = messageQueueService;
+        _storageService = storageService;
         _jwtService = jwtService;
     }
 
@@ -70,24 +70,24 @@ public class ImportFunctions
                 return badRequest;
             }
 
-            _logger.LogInformation("Uploading CSV file to blob storage for user {UserId}, file size: {Size}",
+            _logger.LogInformation("Uploading CSV file to storage for user {UserId}, file size: {Size}",
                 userId, csvContent.Length);
 
-            // Upload CSV file to blob storage
-            var blobUrl = await _blobService.UploadFileAsync(csvContent, fileName);
+            // Upload CSV file to storage (Azure Blob or MinIO)
+            var fileUrl = await _storageService.UploadFileAsync(csvContent, fileName);
 
             // Create import message
             var importMessage = new ImportMessage
             {
                 UserId = userId.ToString(),
-                BlobUrl = blobUrl,
+                FileUrl = fileUrl,
                 FileName = fileName,
                 RequestId = Guid.NewGuid().ToString(),
                 RequestedAt = DateTime.UtcNow
             };
 
-            // Send message to ServiceBus queue for async processing
-            var requestId = await _serviceBusService.SendImportMessageAsync(importMessage);
+            // Send message to message queue for async processing
+            var requestId = await _messageQueueService.SendImportMessageAsync(importMessage);
 
             // Return accepted response with request ID for tracking
             var response = req.CreateResponse(HttpStatusCode.Accepted);

@@ -75,9 +75,18 @@ public class MinioStorageService : IFileStorageService
 
             _logger.LogInformation("File uploaded to MinIO: {BucketName}/{FileName}", bucketName, uniqueFileName);
 
-            // Return the URL (MinIO format)
-            var protocol = _settings.UseSSL ? "https" : "http";
-            return $"{protocol}://{_settings.Endpoint}/{bucketName}/{uniqueFileName}";
+            // Generate presigned URL (valid for 1 hour) for public download
+            var presignedGetObjectArgs = new PresignedGetObjectArgs()
+                .WithBucket(bucketName)
+                .WithObject(uniqueFileName)
+                .WithExpiry(60 * 60); // 1 hour in seconds
+
+            var presignedUrl = await _minioClient.PresignedGetObjectAsync(presignedGetObjectArgs);
+
+            _logger.LogInformation("Generated presigned URL for MinIO file: {BucketName}/{FileName}, Expires in 1 hour",
+                bucketName, uniqueFileName);
+
+            return presignedUrl;
         }
         catch (Exception ex)
         {

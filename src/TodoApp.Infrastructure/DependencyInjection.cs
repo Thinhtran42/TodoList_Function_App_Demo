@@ -252,13 +252,13 @@ public static class DependencyInjection
                         options.ExchangeName = configuration["RabbitMQSettings:ExchangeName"] ?? "todo-exchange";
                         options.RoutingKey = configuration["RabbitMQSettings:RoutingKey"] ?? "todo.import";
                     });
-                services.AddScoped<IServiceBusService, RabbitMQService>();
+                services.AddScoped<IMessageQueueService, RabbitMQService>();
                 break;
 
             case MessageQueueProvider.AzureServiceBus:
             default:
                 // Use Azure Service Bus (existing implementation)
-                services.AddScoped<IServiceBusService, ServiceBusService>();
+                services.AddScoped<IMessageQueueService, ServiceBusService>();
                 break;
         }
 

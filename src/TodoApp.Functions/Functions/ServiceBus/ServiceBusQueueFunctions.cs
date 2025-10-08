@@ -43,9 +43,9 @@ public class ServiceBusQueueFunctions
             _logger.LogInformation("Processing CSV import for RequestId: {RequestId}, UserId: {UserId}, FileName: {FileName}",
                 importMessage.RequestId, importMessage.UserId, importMessage.FileName);
 
-            // Download CSV content from blob storage
-            _logger.LogInformation("Downloading CSV from blob storage: {BlobUrl}", importMessage.BlobUrl);
-            var csvContent = await _blobService.DownloadFileAsync(importMessage.BlobUrl);
+            // Download CSV content from storage
+            _logger.LogInformation("Downloading CSV from storage: {FileUrl}", importMessage.FileUrl);
+            var csvContent = await _blobService.DownloadFileAsync(importMessage.FileUrl);
 
             // Convert string userId to long
             if (!long.TryParse(importMessage.UserId, out var userId))
