@@ -7,6 +7,8 @@ using TodoApp.Application.Interfaces;
 using TodoApp.Application.Services;
 using TodoApp.Domain.Entities;
 using TodoApp.Domain.Exceptions;
+using TodoApp.Application.Interfaces.Repositories;
+using TodoApp.Domain.Enums;
 
 namespace TodoApp.Tests.Application;
 
@@ -84,7 +86,7 @@ public class TodoServiceTests
         // Arrange
         var todoId = 1L;
         var todoItem = TodoItem.Create("Test Todo", "Test Description", Priority.Medium, Category.General);
-        
+
         _mockRepository.Setup(r => r.GetByIdAsync(todoId))
                       .ReturnsAsync(todoItem);
 
@@ -166,7 +168,7 @@ public class TodoServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        
+
         _mockRepository.Verify(r => r.GetByIdAsync(todoId), Times.Once);
         _mockRepository.Verify(r => r.UpdateAsync(It.IsAny<TodoItem>()), Times.Once);
     }
@@ -285,7 +287,7 @@ public class TodoServiceTests
 
         // Assert
         result.Should().HaveCount(2);
-        result.Should().AllSatisfy(dto => 
+        result.Should().AllSatisfy(dto =>
             dto.Title.ToLower().Should().Contain(searchTerm.ToLower()));
 
         _mockRepository.Verify(r => r.SearchTodosAsync(searchTerm), Times.Once);
