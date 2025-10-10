@@ -12,7 +12,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql/data
       - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
     networks:
       - todoapp-network
@@ -153,8 +153,9 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
-    driver: local
+  pg_data:
+    external: true
+    name: todolist_function_app_demo_pg_data
   rabbitmq_data:
     driver: local
   minio_data:
