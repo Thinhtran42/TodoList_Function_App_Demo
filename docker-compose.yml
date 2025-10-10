@@ -70,7 +70,7 @@ services:
       dockerfile: src/TodoApp.API/Dockerfile
     container_name: todoapp-api
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - DatabaseProvider=postgresql
       - StorageProvider=minio
@@ -89,9 +89,9 @@ services:
       - MinIO__UseSSL=false
       - MinIO__BucketName=todo-imports
       # RabbitMQ Settings
-      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Host=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Username=guest
       - RabbitMQSettings__Password=guest
       - RabbitMQSettings__QueueName=import-csv-queue
       - RabbitMQSettings__ExchangeName=todo-exchange
@@ -108,7 +108,7 @@ services:
     networks:
       - todoapp-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 3s
       retries: 3
@@ -120,9 +120,10 @@ services:
     build:
       context: .
       dockerfile: src/TodoApp.Worker/Dockerfile
-    container_name: todoapp-worker
+    deploy:
+      replicas: 3
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_ENVIRONMENT=Development
       # PostgreSQL Connection
       - ConnectionStrings__TodoDb=Host=postgres;Port=5432;Database=tododb;Username=postgres;Password=postgres;Include Error Detail=true
       # MinIO Settings
@@ -132,9 +133,9 @@ services:
       - MinIO__UseSSL=false
       - MinIO__BucketName=todo-imports
       # RabbitMQ Settings
-      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Host=rabbitmq
       - RabbitMQSettings__Port=5672
-      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Username=guest
       - RabbitMQSettings__Password=guest
       - RabbitMQSettings__QueueName=import-csv-queue
       - RabbitMQSettings__ExchangeName=todo-exchange

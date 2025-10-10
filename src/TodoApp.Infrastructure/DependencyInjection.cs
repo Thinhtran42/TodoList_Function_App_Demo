@@ -213,7 +213,7 @@ public static class DependencyInjection
                 services.AddOptions<MinioSettings>()
                     .Configure(options =>
                     {
-                        options.Endpoint = configuration["MinioSettings:Endpoint"] ?? "localhost:9000";
+                        options.Endpoint = configuration["MinioSettings:Endpoint"] ?? "minio:9000";
                         options.AccessKey = configuration["MinioSettings:AccessKey"] ?? "minioadmin";
                         options.SecretKey = configuration["MinioSettings:SecretKey"] ?? "minioadmin";
                         options.BucketName = configuration["MinioSettings:BucketName"] ?? "todo-imports";

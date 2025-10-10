@@ -39,41 +39,47 @@ public class CsvImportConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("CSV Import Worker starting...");
+        var workerId = Environment.MachineName ?? Guid.NewGuid().ToString("N")[..8];
+        _logger.LogInformation("CSV Import Worker [{WorkerId}] starting...", workerId);
 
         try
         {
             // Create consumer channel using shared connection factory from Infrastructure
             _channel = _connectionFactory.CreateConsumerChannel();
 
-            // Set up consumer
+            // Set up consumer with unique consumer tag per worker instance
+            var consumerTag = $"csv-import-consumer-{workerId}";
             var consumer = new EventingBasicConsumer(_channel);
+
             consumer.Received += async (model, ea) =>
             {
-                await ProcessMessageAsync(ea, stoppingToken);
+                _logger.LogInformation("[{WorkerId}] Received message. DeliveryTag: {DeliveryTag}",
+                    workerId, ea.DeliveryTag);
+                await ProcessMessageAsync(ea, stoppingToken, workerId);
             };
 
-            // Start consuming messages
+            // Start consuming messages with unique consumer tag
             _channel.BasicConsume(
                 queue: _settings.QueueName,
                 autoAck: false, // Manual acknowledgment
-                consumer: consumer);
+                consumer: consumer,
+                consumerTag: consumerTag);
 
             _logger.LogInformation(
-                "CSV Import Worker started. Listening on queue: {QueueName}",
-                _settings.QueueName);
+                "CSV Import Worker [{WorkerId}] started. Listening on queue: {QueueName}, ConsumerTag: {ConsumerTag}",
+                workerId, _settings.QueueName, consumerTag);
 
             // Keep the service running
             await Task.Delay(Timeout.Infinite, stoppingToken);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in CSV Import Worker");
+            _logger.LogError(ex, "[{WorkerId}] Error in CSV Import Worker", workerId);
             throw;
         }
     }
 
-    private async Task ProcessMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)
+    private async Task ProcessMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken, string workerId)
     {
         var messageId = ea.BasicProperties.MessageId;
         var messageType = ea.BasicProperties.Headers?.ContainsKey("MessageType") == true
@@ -81,8 +87,8 @@ public class CsvImportConsumer : BackgroundService
             : "Unknown";
 
         _logger.LogInformation(
-            "Received message. MessageId: {MessageId}, Type: {MessageType}",
-            messageId, messageType);
+            "[{WorkerId}] Processing message. MessageId: {MessageId}, Type: {MessageType}, DeliveryTag: {DeliveryTag}",
+            workerId, messageId, messageType, ea.DeliveryTag);
 
         try
         {
@@ -93,14 +99,14 @@ public class CsvImportConsumer : BackgroundService
             var importMessage = JsonSerializer.Deserialize<ImportMessage>(messageBody);
             if (importMessage == null)
             {
-                _logger.LogWarning("Failed to deserialize message. MessageId: {MessageId}", messageId);
+                _logger.LogWarning("[{WorkerId}] Failed to deserialize message. MessageId: {MessageId}", workerId, messageId);
                 _channel!.BasicNack(ea.DeliveryTag, false, false); // Don't requeue
                 return;
             }
 
             _logger.LogInformation(
-                "Processing import request. RequestId: {RequestId}, UserId: {UserId}, FileName: {FileName}",
-                importMessage.RequestId, importMessage.UserId, importMessage.FileName);
+                "[{WorkerId}] Processing import request. RequestId: {RequestId}, UserId: {UserId}, FileName: {FileName}",
+                workerId, importMessage.RequestId, importMessage.UserId, importMessage.FileName);
 
             // Process the import message using scoped services
             using (var scope = _serviceProvider.CreateScope())
@@ -111,13 +117,13 @@ public class CsvImportConsumer : BackgroundService
                     .GetRequiredService<IFileStorageService>();
 
                 // Download CSV file from storage
-                _logger.LogInformation("Downloading CSV from storage: {FileUrl}", importMessage.FileUrl);
+                _logger.LogInformation("[{WorkerId}] Downloading CSV from storage: {FileUrl}", workerId, importMessage.FileUrl);
                 var csvContent = await storageService.DownloadFileAsync(importMessage.FileUrl);
 
                 // Parse user ID
                 if (!long.TryParse(importMessage.UserId, out var userId))
                 {
-                    _logger.LogError("Invalid UserId format in import message: {UserId}", importMessage.UserId);
+                    _logger.LogError("[{WorkerId}] Invalid UserId format in import message: {UserId}", workerId, importMessage.UserId);
                     _channel!.BasicNack(ea.DeliveryTag, false, false); // Don't requeue
                     return;
                 }
@@ -126,32 +132,32 @@ public class CsvImportConsumer : BackgroundService
                 var result = await csvImportService.ImportTodosAsync(userId, csvContent);
 
                 _logger.LogInformation(
-                    "Import completed. RequestId: {RequestId}, Status: {Status}, Imported: {Imported}, Failed: {Failed}",
-                    importMessage.RequestId, result.Status, result.ImportedRecords, result.FailedRecords);
+                    "[{WorkerId}] Import completed. RequestId: {RequestId}, Status: {Status}, Imported: {Imported}, Failed: {Failed}",
+                    workerId, importMessage.RequestId, result.Status, result.ImportedRecords, result.FailedRecords);
 
                 // Log any errors
                 if (result.Errors.Any())
                 {
                     _logger.LogWarning(
-                        "Import completed with {ErrorCount} errors. RequestId: {RequestId}",
-                        result.FailedRecords, importMessage.RequestId);
+                        "[{WorkerId}] Import completed with {ErrorCount} errors. RequestId: {RequestId}",
+                        workerId, result.FailedRecords, importMessage.RequestId);
 
                     foreach (var error in result.Errors.Take(10)) // Log first 10 errors
                     {
                         _logger.LogWarning(
-                            "Import error for RequestId {RequestId}: {Error}",
-                            importMessage.RequestId, error);
+                            "[{WorkerId}] Import error for RequestId {RequestId}: {Error}",
+                            workerId, importMessage.RequestId, error);
                     }
                 }
 
                 // Acknowledge successful processing
                 _channel!.BasicAck(ea.DeliveryTag, false);
-                _logger.LogInformation("Message processed successfully. MessageId: {MessageId}", messageId);
+                _logger.LogInformation("[{WorkerId}] Message processed successfully. MessageId: {MessageId}", workerId, messageId);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing message. MessageId: {MessageId}", messageId);
+            _logger.LogError(ex, "[{WorkerId}] Error processing message. MessageId: {MessageId}", workerId, messageId);
 
             // Negative acknowledgment with requeue
             // You might want to implement a retry limit or dead-letter queue
@@ -161,15 +167,16 @@ public class CsvImportConsumer : BackgroundService
 
     public override void Dispose()
     {
+        var workerId = Environment.MachineName ?? "unknown";
         try
         {
             _channel?.Close();
             _channel?.Dispose();
-            _logger.LogInformation("CSV Import Worker channel closed");
+            _logger.LogInformation("[{WorkerId}] CSV Import Worker channel closed", workerId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error disposing CSV Import Worker channel");
+            _logger.LogError(ex, "[{WorkerId}] Error disposing CSV Import Worker channel", workerId);
         }
 
         base.Dispose();
