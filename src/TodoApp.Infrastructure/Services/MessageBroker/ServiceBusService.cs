@@ -25,35 +25,42 @@ public class ServiceBusService : IMessageQueueService
         _logger = logger;
     }
 
-    public async Task<string> SendImportMessageAsync(ImportMessage message)
+    public async Task<string> SendMessageAsync<T>(T message, string? routingKey = null) where T : class
     {
         try
         {
             // Serialize message to JSON
             var messageBody = JsonSerializer.Serialize(message);
+            var messageId = Guid.NewGuid().ToString();
+
             var serviceBusMessage = new ServiceBusMessage(messageBody)
             {
-                MessageId = message.RequestId,
-                Subject = "CSV Import Request",
+                MessageId = messageId,
+                Subject = typeof(T).Name,
                 ContentType = "application/json"
             };
 
-            // Add custom properties for filtering/routing
-            serviceBusMessage.ApplicationProperties.Add("UserId", message.UserId);
-            serviceBusMessage.ApplicationProperties.Add("RequestedAt", message.RequestedAt);
+            // Add message type and routing information
+            serviceBusMessage.ApplicationProperties.Add("MessageType", typeof(T).Name);
+            serviceBusMessage.ApplicationProperties.Add("SentAt", DateTime.UtcNow);
+
+            if (!string.IsNullOrEmpty(routingKey))
+            {
+                serviceBusMessage.ApplicationProperties.Add("RoutingKey", routingKey);
+            }
 
             // Send message to queue
             await _queueSender.SendMessageAsync(serviceBusMessage);
 
-            _logger.LogInformation("Import message sent to ServiceBus queue. RequestId: {RequestId}, UserId: {UserId}",
-                message.RequestId, message.UserId);
+            _logger.LogInformation(
+                "Message sent to ServiceBus queue. Type: {MessageType}, MessageId: {MessageId}, Queue: {QueueName}",
+                typeof(T).Name, messageId, ImportQueueName);
 
-            return message.RequestId;
+            return messageId;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send import message to ServiceBus. RequestId: {RequestId}, UserId: {UserId}",
-                message.RequestId, message.UserId);
+            _logger.LogError(ex, "Failed to send message to ServiceBus. Type: {MessageType}", typeof(T).Name);
             throw;
         }
     }

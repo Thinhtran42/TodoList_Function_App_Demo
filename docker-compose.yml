@@ -1,73 +1,165 @@
-version: "3.9"
+version: "3.8"
+
 services:
+  # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
-    container_name: todo-postgres
-    restart: unless-stopped
+    container_name: todoapp-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tododb
     ports:
       - "5432:5432"
-    environment:
-      POSTGRES_USER: ${PGUSER:-postgres}
-      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres}
-      POSTGRES_DB: ${PGDATABASE:-tododb}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    networks:
+      - todoapp-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - todo-network
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: todoapp-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672" # AMQP port
+      - "15672:15672" # Management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - todoapp-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO Object Storage
   minio:
     image: minio/minio:latest
-    container_name: todo-minio
-    restart: unless-stopped
+    container_name: todoapp-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
     ports:
       - "9000:9000" # API port
       - "9001:9001" # Console port
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     volumes:
       - minio_data:/data
-    command: server /data --console-address ":9001"
+    networks:
+      - todoapp-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - todo-network
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: todo-rabbitmq
-    restart: unless-stopped
-    ports:
-      - "5672:5672" # AMQP port
-      - "15672:15672" # Management UI port
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - rabbitmq_log:/var/log/rabbitmq
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 30s
-      timeout: 10s
+      interval: 10s
+      timeout: 5s
       retries: 5
+
+  # TodoApp API
+  todoapp-api:
+    build:
+      context: .
+      dockerfile: src/TodoApp.API/Dockerfile
+    container_name: todoapp-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - DatabaseProvider=postgresql
+      - StorageProvider=minio
+      - MessageQueueProvider=rabbitmq
+      # PostgreSQL Connection
+      - ConnectionStrings__TodoDb=Host=postgres;Port=5432;Database=tododb;Username=postgres;Password=postgres;Include Error Detail=true
+      # JWT Settings
+      - JwtSettings__SecretKey=your-super-secret-key-minimum-32-characters-long-for-production
+      - JwtSettings__Issuer=TodoApp
+      - JwtSettings__Audience=TodoApp.API
+      - JwtSettings__ExpirationMinutes=60
+      # MinIO Settings
+      - MinIO__Endpoint=minio:9000
+      - MinIO__AccessKey=minioadmin
+      - MinIO__SecretKey=minioadmin
+      - MinIO__UseSSL=false
+      - MinIO__BucketName=todo-imports
+      # RabbitMQ Settings
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__QueueName=import-csv-queue
+      - RabbitMQSettings__ExchangeName=todo-exchange
+      - RabbitMQSettings__RoutingKey=todo.import
+    ports:
+      - "5231:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
-      - todo-network
+      - todoapp-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # TodoApp Worker (Background Jobs + RabbitMQ Consumers + Hangfire)
+  todoapp-worker:
+    build:
+      context: .
+      dockerfile: src/TodoApp.Worker/Dockerfile
+    container_name: todoapp-worker
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      # PostgreSQL Connection
+      - ConnectionStrings__TodoDb=Host=postgres;Port=5432;Database=tododb;Username=postgres;Password=postgres;Include Error Detail=true
+      # MinIO Settings
+      - MinIO__Endpoint=minio:9000
+      - MinIO__AccessKey=minioadmin
+      - MinIO__SecretKey=minioadmin
+      - MinIO__UseSSL=false
+      - MinIO__BucketName=todo-imports
+      # RabbitMQ Settings
+      - RabbitMQSettings__HostName=rabbitmq
+      - RabbitMQSettings__Port=5672
+      - RabbitMQSettings__UserName=guest
+      - RabbitMQSettings__Password=guest
+      - RabbitMQSettings__QueueName=import-csv-queue
+      - RabbitMQSettings__ExchangeName=todo-exchange
+      - RabbitMQSettings__RoutingKey=todo.import
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      todoapp-api:
+        condition: service_healthy
+    networks:
+      - todoapp-network
+    restart: unless-stopped
 
 volumes:
-  pg_data:
-  minio_data:
+  postgres_data:
+    driver: local
   rabbitmq_data:
-  rabbitmq_log:
+    driver: local
+  minio_data:
+    driver: local
 
 networks:
-  todo-network:
+  todoapp-network:
     driver: bridge

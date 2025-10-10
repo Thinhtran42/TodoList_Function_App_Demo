@@ -1,0 +1,59 @@
+# Ignore build output
+**/bin/
+**/obj/
+**/out/
+
+# Ignore IDE files
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore packages
+**/packages/
+*.nupkg
+
+# Ignore test results
+**/TestResults/
+
+# Ignore docker files
+**/Dockerfile*
+**/docker-compose*
+**/.dockerignore
+
+# Ignore git
+.git/
+.gitignore
+.gitattributes
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore logs
+**/logs/
+*.log
+
+# Ignore environment files
+.env
+.env.*
+
+# Ignore temporary files
+**/tmp/
+**/temp/
+**/*.tmp
+**/*.bak
+**/*.swp
+
+# Ignore node modules (if any)
+**/node_modules/
+
+# Ignore certificates
+**/*.pfx
+**/*.p12
+
+# Ignore local settings
+**/local.settings.json

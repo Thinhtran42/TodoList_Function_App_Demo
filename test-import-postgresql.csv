@@ -1,0 +1,9 @@
+Title,Description,Priority,Category,DueDate,Tags,IsCompleted
+"Learn Azure Functions","Complete Azure Functions tutorial","High","Work","2025-10-10T10:00:00Z","azure;functions;learning",false
+"Buy groceries","Buy milk, bread, and eggs","Medium","Personal","2025-10-06T14:30:00Z","shopping;food",false
+"Complete project","Finish the TodoApp project","High","Work","2025-10-15T17:00:00Z","project;deadline",false
+"Call dentist","Schedule dental appointment","Low","Personal","2025-10-08T09:00:00Z","health;appointment",false
+"Review code","Review pull request #123","Medium","Work","","review;code",true
+"Exercise","Go for a 30-minute walk","Low","Health","2025-10-05T07:00:00Z","fitness;health",false
+"Read book","Read 2 chapters","Medium","Personal","2025-10-12T20:00:00Z","learning;self-improvement",false
+"Team meeting","Weekly standup meeting","High","Work","2025-10-11T09:30:00Z","meeting;team",false

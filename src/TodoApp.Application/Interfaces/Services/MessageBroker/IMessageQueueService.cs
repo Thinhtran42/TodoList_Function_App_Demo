@@ -1,3 +1,4 @@
+using System;
 using TodoApp.Application.DTOs;
 
 namespace TodoApp.Application.Interfaces.Services.MessageBroker;
@@ -8,9 +9,11 @@ namespace TodoApp.Application.Interfaces.Services.MessageBroker;
 public interface IMessageQueueService
 {
     /// <summary>
-    /// Send import message to message queue for async processing
+    /// Send a message to the message queue for async processing
     /// </summary>
-    /// <param name="message">Import message containing CSV content and user info</param>
+    /// <typeparam name="T">Message type - must be a class</typeparam>
+    /// <param name="message">Message object to send</param>
+    /// <param name="routingKey">Optional routing key for topic-based routing. If null, uses default from settings.</param>
     /// <returns>Message ID for tracking</returns>
-    Task<string> SendImportMessageAsync(ImportMessage message);
+    Task<string> SendMessageAsync<T>(T message, string? routingKey = null) where T : class;
 }

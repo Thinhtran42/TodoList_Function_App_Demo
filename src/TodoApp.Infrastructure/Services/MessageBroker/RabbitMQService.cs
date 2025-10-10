@@ -16,65 +16,30 @@ public class RabbitMQService : IMessageQueueService, IDisposable
 {
     private readonly RabbitMQSettings _settings;
     private readonly ILogger<RabbitMQService> _logger;
-    private readonly IConnection _connection;
     private readonly IModel _channel;
 
     public RabbitMQService(
         IOptions<RabbitMQSettings> settings,
-        ILogger<RabbitMQService> logger)
+        ILogger<RabbitMQService> logger,
+        RabbitMQConnectionFactory connectionFactory)
     {
         _settings = settings.Value;
         _logger = logger;
 
         try
         {
-            // Create connection factory
-            var factory = new ConnectionFactory
-            {
-                HostName = _settings.Host,
-                Port = _settings.Port,
-                UserName = _settings.Username,
-                Password = _settings.Password,
-                AutomaticRecoveryEnabled = true,
-                NetworkRecoveryInterval = TimeSpan.FromSeconds(10)
-            };
-
-            // Create connection and channel
-            _connection = factory.CreateConnection();
-            _channel = _connection.CreateModel();
-
-            // Declare exchange (topic type for routing)
-            _channel.ExchangeDeclare(
-                exchange: _settings.ExchangeName,
-                type: ExchangeType.Topic,
-                durable: true,
-                autoDelete: false);
-
-            // Declare queue
-            _channel.QueueDeclare(
-                queue: _settings.QueueName,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: null);
-
-            // Bind queue to exchange
-            _channel.QueueBind(
-                queue: _settings.QueueName,
-                exchange: _settings.ExchangeName,
-                routingKey: _settings.RoutingKey);
-
-            _logger.LogInformation("RabbitMQ connection established. Exchange: {Exchange}, Queue: {Queue}",
-                _settings.ExchangeName, _settings.QueueName);
+            // Use shared connection factory to create producer channel
+            _channel = connectionFactory.CreateProducerChannel();
+            _logger.LogInformation("RabbitMQ producer service initialized");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to connect to RabbitMQ");
+            _logger.LogError(ex, "Failed to initialize RabbitMQ producer service");
             throw;
         }
     }
 
-    public async Task<string> SendImportMessageAsync(ImportMessage message)
+    public async Task<string> SendMessageAsync<T>(T message, string? routingKey = null) where T : class
     {
         try
         {
@@ -84,34 +49,35 @@ public class RabbitMQService : IMessageQueueService, IDisposable
             var properties = _channel.CreateBasicProperties();
             properties.Persistent = true; // Make message persistent
             properties.ContentType = "application/json";
-            properties.MessageId = message.RequestId;
+            properties.MessageId = Guid.NewGuid().ToString();
 
-            // Add custom headers
+            // Use provided routing key or default from settings
+            var effectiveRoutingKey = routingKey ?? _settings.RoutingKey;
+
+            // Add type information for better debugging and routing
             properties.Headers = new Dictionary<string, object>
             {
-                { "RequestId", message.RequestId },
-                { "UserId", message.UserId },
-                { "RequestedAt", message.RequestedAt.ToString("o") }
+                { "MessageType", typeof(T).Name },
+                { "SentAt", DateTime.UtcNow.ToString("o") }
             };
 
             // Publish message to exchange
             _channel.BasicPublish(
                 exchange: _settings.ExchangeName,
-                routingKey: _settings.RoutingKey,
+                routingKey: effectiveRoutingKey,
                 basicProperties: properties,
                 body: body);
 
             _logger.LogInformation(
-                "Import message sent to RabbitMQ. RequestId: {RequestId}, UserId: {UserId}, Exchange: {Exchange}, RoutingKey: {RoutingKey}",
-                message.RequestId, message.UserId, _settings.ExchangeName, _settings.RoutingKey);
+                "Message sent to RabbitMQ. Type: {MessageType}, MessageId: {MessageId}, Exchange: {Exchange}, RoutingKey: {RoutingKey}",
+                typeof(T).Name, properties.MessageId, _settings.ExchangeName, effectiveRoutingKey);
 
             await Task.CompletedTask;
-            return message.RequestId;
+            return properties.MessageId;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send import message to RabbitMQ. RequestId: {RequestId}, UserId: {UserId}",
-                message.RequestId, message.UserId);
+            _logger.LogError(ex, "Failed to send message to RabbitMQ. Type: {MessageType}", typeof(T).Name);
             throw;
         }
     }
@@ -122,13 +88,11 @@ public class RabbitMQService : IMessageQueueService, IDisposable
         {
             _channel?.Close();
             _channel?.Dispose();
-            _connection?.Close();
-            _connection?.Dispose();
-            _logger.LogInformation("RabbitMQ connection closed");
+            _logger.LogInformation("RabbitMQ producer channel closed");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error disposing RabbitMQ connection");
+            _logger.LogError(ex, "Error disposing RabbitMQ producer channel");
         }
     }
 }

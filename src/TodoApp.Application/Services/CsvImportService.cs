@@ -92,7 +92,10 @@ public class CsvImportService : ICsvImportService
             }
             else
             {
-                dueDate = parsedDate;
+                // Ensure DateTime is in UTC for PostgreSQL compatibility
+                dueDate = parsedDate.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(parsedDate, DateTimeKind.Utc)
+                    : parsedDate.ToUniversalTime();
             }
         }
 

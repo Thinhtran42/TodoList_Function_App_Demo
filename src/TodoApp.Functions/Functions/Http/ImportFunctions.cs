@@ -87,7 +87,7 @@ public class ImportFunctions
             };
 
             // Send message to message queue for async processing
-            var requestId = await _messageQueueService.SendImportMessageAsync(importMessage);
+            var requestId = await _messageQueueService.SendMessageAsync(importMessage);
 
             // Return accepted response with request ID for tracking
             var response = req.CreateResponse(HttpStatusCode.Accepted);

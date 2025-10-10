@@ -83,7 +83,7 @@ public class ImportController : ControllerBase
             };
 
             // Send message to message queue for async processing
-            var requestId = await _messageQueueService.SendImportMessageAsync(importMessage);
+            var requestId = await _messageQueueService.SendMessageAsync(importMessage);
 
             _logger.LogInformation("CSV import request queued for user {UserId}. RequestId: {RequestId}",
                 userId, requestId);

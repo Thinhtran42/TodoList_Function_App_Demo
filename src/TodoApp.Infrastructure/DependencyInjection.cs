@@ -252,6 +252,11 @@ public static class DependencyInjection
                         options.ExchangeName = configuration["RabbitMQSettings:ExchangeName"] ?? "todo-exchange";
                         options.RoutingKey = configuration["RabbitMQSettings:RoutingKey"] ?? "todo.import";
                     });
+
+                // Register RabbitMQ Connection Factory as Singleton (shared connection)
+                services.AddSingleton<RabbitMQConnectionFactory>();
+
+                // Register RabbitMQ Service (producer)
                 services.AddScoped<IMessageQueueService, RabbitMQService>();
                 break;
 

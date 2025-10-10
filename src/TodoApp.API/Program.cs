@@ -3,6 +3,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using TodoApp.API.Swagger;
 using TodoApp.Domain.Settings;
 using TodoApp.Infrastructure;
@@ -48,6 +50,17 @@ builder.Services.AddInfrastructureWithProvider(builder.Configuration, databasePr
 builder.Services.AddStorageServices(builder.Configuration, storageProvider);
 builder.Services.AddMessageQueueServices(builder.Configuration, messageQueueProvider);
 builder.Services.AddJwtSettings(jwtSettings);
+
+// Configure Hangfire with PostgreSQL storage (Read-only Dashboard)
+var connectionString = builder.Configuration.GetConnectionString("TodoDb")
+    ?? throw new InvalidOperationException("PostgreSQL connection string is not configured");
+
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UsePostgreSqlStorage(options =>
+        options.UseNpgsqlConnection(connectionString)));
 
 // Add Controllers
 builder.Services.AddControllers();
@@ -142,6 +155,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoApp API V1");
+    });
+
+    // Add Hangfire Dashboard (Development only)
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = [] // No authorization in development
     });
 }
 
