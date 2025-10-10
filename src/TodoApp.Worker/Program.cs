@@ -79,4 +79,13 @@ using (var scope = host.Services.CreateScope())
         });
 }
 
+Console.WriteLine("====================================");
+Console.WriteLine("🚀 TodoApp Worker Service Started");
+Console.WriteLine("====================================");
+Console.WriteLine($"⏰ Recurring Jobs Registered:");
+Console.WriteLine($"   - monitor-todo-changes: Every 1 minute");
+Console.WriteLine($"📊 Hangfire Dashboard: http://localhost:5231/hangfire");
+Console.WriteLine($"💡 Tip: Check API service for Hangfire Dashboard");
+Console.WriteLine("====================================");
+
 host.Run();

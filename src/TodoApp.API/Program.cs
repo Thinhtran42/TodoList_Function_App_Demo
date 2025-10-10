@@ -62,6 +62,15 @@ builder.Services.AddHangfire(config => config
     .UsePostgreSqlStorage(options =>
         options.UseNpgsqlConnection(connectionString)));
 
+// Add Hangfire Server for Dashboard visibility
+// This server will process jobs with low priority (Worker handles main jobs)
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = 1; // Minimum 1 worker required
+    options.ServerName = "TodoApp.API.Dashboard";
+    options.Queues = new[] { "dashboard-only" }; // Only process jobs from a specific queue (prevents conflicts with Worker)
+});
+
 // Add Controllers
 builder.Services.AddControllers();
 

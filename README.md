@@ -28,24 +28,65 @@ TodoApp/
 
 ### Option 1: Docker (Recommended)
 
+**Bước 1: Clone repository**
+
 ```bash
-# Build và start tất cả services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop
-docker-compose down
+git clone https://github.com/Thinhtran42/TodoList_Function_App_Demo.git
+cd TodoList_Function_App_Demo
 ```
 
-**Services available:**
+**Bước 2: Khởi động services**
 
-- API: http://localhost:5231
-- Swagger: http://localhost:5231/swagger
-- Hangfire Dashboard: http://localhost:5231/hangfire
-- RabbitMQ Management: http://localhost:15672
-- MinIO Console: http://localhost:9001
+```bash
+# Build và start tất cả services
+docker-compose up --build -d
+
+# Chờ PostgreSQL khởi động (khoảng 10-15 giây)
+```
+
+**Bước 3: Khởi tạo database**
+
+```bash
+# Import database schema (bao gồm users, todos, authentication)
+docker exec -i todoapp-postgres psql -U postgres -d tododb < init-db.sql
+```
+
+**Bước 4: Quản lý services**
+
+```bash
+# Xem logs tất cả services
+docker-compose logs -f
+
+# Xem logs của service cụ thể
+docker-compose logs -f todoapp-api
+
+# Restart với code mới
+docker-compose down
+docker-compose up --build -d
+
+# Stop tất cả services
+docker-compose down
+
+# Stop và xóa volumes (reset database)
+docker-compose down -v
+```
+
+**🌐 Services Available:**
+
+- **API:** http://localhost:5231
+- **Swagger UI:** http://localhost:5231/swagger
+- **Hangfire Dashboard:** http://localhost:5231/hangfire
+- **RabbitMQ Management:** http://localhost:15672 (username: `guest`, password: `guest`)
+- **MinIO Console:** http://localhost:9001 (username: `minioadmin`, password: `minioadmin`)
+
+**👤 Test Accounts:**
+
+Sau khi import database, bạn có thể login với:
+
+- Username: `testuser` hoặc `admin`
+- Password: `password123`
+
+**⚠️ Lưu ý:** Lần chạy đầu tiên **BẮT BUỘC** phải import database schema (Bước 3).
 
 ### Option 2: Local Development
 
@@ -65,8 +106,8 @@ docker-compose up -d postgres rabbitmq minio
 **Bước 2: Setup Database**
 
 ```bash
-# Import schema
-psql -h localhost -U postgres -d tododb -f schema.sql
+# Import database schema
+psql -h localhost -U postgres -d tododb -f init-db.sql
 ```
 
 **Bước 3: Run API**
